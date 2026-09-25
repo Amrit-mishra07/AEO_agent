@@ -29,8 +29,8 @@ export default function SchemaGapList({ gaps = [] }) {
             <span className="badge" style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
               {gap.schemaType}
             </span>
-            <span className={`badge badge-${gap.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-              {gap.status}
+            <span className={`badge badge-${(gap.status || 'unknown').toLowerCase().replace(/\s+/g, '-')}`} style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
+              {gap.status || 'Unknown'}
             </span>
           </div>
           <p className="issue-url"><strong>URL:</strong> {gap.pageUrl}</p>

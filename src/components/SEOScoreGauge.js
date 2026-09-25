@@ -1,29 +1,31 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-export default function SEOScoreGauge({ score = 0, label, size = 'default', grade }) {
+export default function SEOScoreGauge({ score, label, size = 'default', grade }) {
+  const safeScore = score ?? 0;
   const [animatedScore, setAnimatedScore] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setAnimatedScore(score);
+      setAnimatedScore(safeScore);
     }, 100);
     return () => clearTimeout(timer);
-  }, [score]);
+  }, [safeScore]);
 
+  const isLarge = size === 'large';
   const isMini = size === 'mini';
-  const radius = isMini ? 30 : 62;
-  const strokeWidth = isMini ? 6 : 10;
-  const center = isMini ? 36 : 70;
-  const svgSize = isMini ? 72 : 140;
+  const radius = isLarge ? 80 : isMini ? 30 : 62;
+  const strokeWidth = isLarge ? 12 : isMini ? 6 : 10;
+  const center = isLarge ? 90 : isMini ? 36 : 70;
+  const svgSize = isLarge ? 180 : isMini ? 72 : 140;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - animatedScore / 100);
 
   let colorVar = 'var(--accent-danger)';
-  if (score >= 80) colorVar = 'var(--accent-primary)';
-  else if (score >= 60) colorVar = 'var(--accent-warning)';
+  if (safeScore >= 80) colorVar = 'var(--accent-primary)';
+  else if (safeScore >= 60) colorVar = 'var(--accent-warning)';
 
-  const gaugeClass = isMini ? 'gauge-container gauge-mini' : 'gauge-container';
+  const gaugeClass = isLarge ? 'gauge-container gauge-large' : isMini ? 'gauge-container gauge-mini' : 'gauge-container';
 
   return (
     <div className={gaugeClass}>

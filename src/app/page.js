@@ -3,6 +3,8 @@ import { listAudits } from '@/lib/db';
 import Link from 'next/link';
 import { getScoreColor, getScoreGrade } from '@/utils/scoring';
 
+export const dynamic = 'force-dynamic';
+
 export default function HomePage() {
   const audits = listAudits() || [];
 

@@ -39,7 +39,8 @@ function initializeDB(db) {
       content_score INTEGER,
       citation_score INTEGER,
       overall_score INTEGER,
-      llms_txt TEXT
+      llms_txt TEXT,
+      completed_at DATETIME
     );
 
     CREATE TABLE IF NOT EXISTS pages (
@@ -186,10 +187,10 @@ export function addSEOIssues(auditId, issues) {
       stmt.run({
         id: uuidv4(),
         audit_id: auditId,
-        type: item.type,
-        severity: item.severity,
-        message: item.message,
-        page_url: item.page_url || null
+        type: item.category || item.type || 'general',
+        severity: item.severity || 'info',
+        message: item.issue || item.message || '',
+        page_url: item.url || item.page_url || null
       });
     }
   });
@@ -210,9 +211,9 @@ export function addSchemaGaps(auditId, gaps) {
       stmt.run({
         id: uuidv4(),
         audit_id: auditId,
-        type: item.type,
-        importance: item.importance,
-        message: item.message,
+        type: item.schemaType || item.type || 'Unknown',
+        importance: item.status || item.importance || 'missing',
+        message: item.details || item.message || '',
         expected: item.expected || 0,
         actual: item.actual || 0
       });
@@ -235,10 +236,10 @@ export function addCitations(auditId, citations) {
       stmt.run({
         id: uuidv4(),
         audit_id: auditId,
-        target_query: item.target_query,
-        source_url: item.source_url,
-        snippet: item.snippet || null,
-        ai_engine: item.ai_engine || null
+        target_query: item.keyword || item.target_query || '',
+        source_url: item.source_url || null,
+        snippet: item.citationContext || item.snippet || null,
+        ai_engine: item.engine || item.ai_engine || null
       });
     }
   });

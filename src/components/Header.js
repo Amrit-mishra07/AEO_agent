@@ -9,7 +9,7 @@ export default function Header() {
           AEO Copilot
         </Link>
         <nav className="header-nav">
-          <Link href="/dashboard" className="header-nav-link">Dashboard</Link>
+          <Link href="/" className="header-nav-link">Dashboard</Link>
           <a 
             href="https://docs.aeocopilot.com" 
             target="_blank" 

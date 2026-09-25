@@ -1,15 +1,72 @@
-export function AuditLoadingState() {
+'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const STEPS = [
+  'Crawling site...',
+  'Analyzing SEO...',
+  'Checking schemas...',
+  'Scoring content...',
+  'Probing AI citations...',
+  'Generating fixes...',
+];
+
+export function AuditLoadingState({ auditId }) {
+  const router = useRouter();
+  const [activeStep, setActiveStep] = useState(0);
+
+  // Animate through the loading steps for visual feedback
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveStep(prev => (prev < STEPS.length - 1 ? prev + 1 : prev));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll the API every 3 seconds to check if the audit is done
+  useEffect(() => {
+    if (!auditId) return;
+
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/audit?id=${auditId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(poll);
+          // Force a full page refresh so the server component re-reads the DB
+          router.refresh();
+        }
+      } catch {
+        // Silently ignore polling errors
+      }
+    }, 3000);
+
+    return () => clearInterval(poll);
+  }, [auditId, router]);
+
   return (
     <div className="loading-overlay">
       <div className="loading-spinner"></div>
-      <div className="loading-steps" style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-        <div className="loading-step">Crawling site...</div>
-        <div className="loading-step">Analyzing SEO...</div>
-        <div className="loading-step">Checking schemas...</div>
-        <div className="loading-step">Scoring content...</div>
-        <div className="loading-step">Probing AI citations...</div>
-        <div className="loading-step">Generating fixes...</div>
+      <div className="loading-steps" style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
+        {STEPS.map((step, i) => (
+          <div
+            key={step}
+            className="loading-step"
+            style={{
+              opacity: i <= activeStep ? 1 : 0.35,
+              transition: 'opacity 0.4s ease',
+              fontWeight: i === activeStep ? '600' : '400',
+              color: i < activeStep ? 'var(--accent-primary)' : undefined,
+            }}
+          >
+            {i < activeStep ? '✓ ' : ''}{step}
+          </div>
+        ))}
       </div>
+      <p style={{ marginTop: '2rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+        This may take 30–90 seconds depending on the site size.
+      </p>
     </div>
   );
 }
