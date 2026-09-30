@@ -1404,3 +1404,348 @@ tbody tr:hover {
   scrollbar-width: thin;
   scrollbar-color: var(--border-medium) transparent;
 }
+
+/* ==========================================================================
+   WORLD-CLASS DEVELOPER UI EXTENSIONS (Linear/Vercel/Supabase Aesthetic)
+   ========================================================================== */
+
+/* Glow & Lighting Utilities */
+.glow-emerald {
+  box-shadow: 0 0 35px -5px hsla(155, 80%, 50%, 0.25);
+}
+.glow-cyan {
+  box-shadow: 0 0 35px -5px hsla(200, 90%, 55%, 0.25);
+}
+.glow-purple {
+  box-shadow: 0 0 35px -5px hsla(270, 75%, 60%, 0.25);
+}
+
+/* Bento Grid System */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-lg);
+  margin-top: var(--space-2xl);
+}
+
+.bento-card {
+  background: linear-gradient(145deg, hsla(225, 25%, 13%, 0.75), hsla(225, 25%, 9%, 0.9));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bento-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsla(220, 20%, 65%, 0.25), transparent);
+}
+
+.bento-card:hover {
+  border-color: hsla(220, 25%, 50%, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px hsla(0, 0%, 0%, 0.5);
+}
+
+.bento-card.col-6 { grid-column: span 6; }
+.bento-card.col-4 { grid-column: span 4; }
+.bento-card.col-8 { grid-column: span 8; }
+.bento-card.col-12 { grid-column: span 12; }
+
+@media (max-width: 900px) {
+  .bento-card.col-6,
+  .bento-card.col-4,
+  .bento-card.col-8 {
+    grid-column: span 12;
+  }
+}
+
+.bento-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Command Bar & URL Input */
+.cmd-bar-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.cmd-bar {
+  display: flex;
+  align-items: center;
+  background: hsla(225, 25%, 11%, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  padding: 0.5rem 0.6rem;
+  box-shadow: 0 12px 40px -10px hsla(0, 0%, 0%, 0.6);
+  transition: all var(--transition-base);
+}
+
+.cmd-bar:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 16px 48px -12px hsla(155, 80%, 50%, 0.2);
+}
+
+.cmd-prefix {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 500;
+  user-select: none;
+}
+
+.cmd-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  padding: 0.5rem 0.85rem;
+  outline: none;
+}
+
+.cmd-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.preset-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.preset-btn {
+  background: hsla(225, 20%, 15%, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.preset-btn:hover {
+  background: hsla(225, 25%, 20%, 0.8);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: hsla(225, 25%, 12%, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.25rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  box-shadow: 0 10px 30px hsla(0, 0%, 0%, 0.5);
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Sticky Dashboard Section Navigation */
+.sticky-subnav {
+  position: sticky;
+  top: 64px;
+  z-index: 40;
+  background: hsla(225, 25%, 8%, 0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-xl);
+  margin-top: var(--space-lg);
+}
+
+.sticky-subnav-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  scrollbar-width: none;
+}
+.sticky-subnav-inner::-webkit-scrollbar { display: none; }
+
+.subnav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.subnav-btn:hover {
+  color: var(--text-primary);
+  background: hsla(225, 20%, 18%, 0.5);
+}
+
+.subnav-btn.active {
+  color: var(--text-primary);
+  background: hsla(225, 25%, 22%, 0.8);
+  border-color: hsla(220, 20%, 40%, 0.4);
+}
+
+/* Code Studio Chrome */
+.code-studio {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: hsl(225, 25%, 7%);
+  box-shadow: 0 10px 30px hsla(0, 0%, 0%, 0.4);
+}
+
+.code-studio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: hsla(225, 25%, 11%, 0.85);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.code-window-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-red { background: #ef4444; }
+.dot-yellow { background: #f59e0b; }
+.dot-green { background: #10b981; }
+
+/* Interactive Stepper Pipeline */
+.pipeline-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin: 2rem auto;
+}
+
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.pipeline-node {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-medium);
+  color: var(--text-tertiary);
+  transition: all 0.3s ease;
+}
+
+.pipeline-step.active .pipeline-node {
+  border-color: var(--accent-secondary);
+  background: hsla(200, 90%, 55%, 0.15);
+  color: var(--accent-secondary);
+  box-shadow: 0 0 15px hsla(200, 90%, 55%, 0.4);
+  animation: pulseNode 1.5s infinite;
+}
+
+.pipeline-step.completed .pipeline-node {
+  border-color: var(--accent-primary);
+  background: hsla(155, 80%, 50%, 0.2);
+  color: var(--accent-primary);
+}
+
+@keyframes pulseNode {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.pipeline-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.pipeline-step.active .pipeline-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.pipeline-step.completed .pipeline-label {
+  color: var(--accent-primary);
+}
+

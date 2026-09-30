@@ -1,6 +1,7 @@
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/Header';
+import { ToastProvider } from '@/components/Toast';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
@@ -19,8 +20,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
       <body>
-        <Header />
-        <main>{children}</main>
+        <ToastProvider>
+          <Header />
+          <main>{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );

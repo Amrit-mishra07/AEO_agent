@@ -1,12 +1,17 @@
 'use client';
+
 import { useState } from 'react';
+import { FileText, Copy, Check, Download } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 export default function LlmsTxtPreview({ content = '' }) {
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
     setCopied(true);
+    toast.success('llms.txt content copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -20,23 +25,54 @@ export default function LlmsTxtPreview({ content = '' }) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    toast.success('llms.txt file downloaded');
   };
 
+  const lineCount = content ? content.split('\n').length : 0;
+
   return (
-    <div className="llmstxt-preview">
-      <div className="llmstxt-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span className="llmstxt-filename" style={{ fontWeight: 'bold' }}>llms.txt</span>
-        <div className="llmstxt-actions" style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="copy-btn btn-sm btn" onClick={handleCopy}>
-            {copied ? 'Copied!' : 'Copy'}
+    <div className="code-studio">
+      <div className="code-studio-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="code-window-dots">
+            <span className="dot dot-red" />
+            <span className="dot dot-yellow" />
+            <span className="dot dot-green" />
+          </div>
+          <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600 }}>
+            <FileText size={14} style={{ color: 'var(--accent-warning)' }} />
+            /llms.txt
+          </span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+            ({lineCount} lines)
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button 
+            type="button"
+            className="btn btn-secondary btn-sm" 
+            onClick={handleCopy}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem' }}
+          >
+            {copied ? <Check size={13} style={{ color: 'var(--accent-primary)' }} /> : <Copy size={13} />}
+            <span>{copied ? 'Copied!' : 'Copy'}</span>
           </button>
-          <button className="btn-sm btn" onClick={handleDownload}>
-            Download
+          <button 
+            type="button"
+            className="btn btn-secondary btn-sm" 
+            onClick={handleDownload}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem' }}
+          >
+            <Download size={13} />
+            <span>Download</span>
           </button>
         </div>
       </div>
-      <div className="llmstxt-content" style={{ marginTop: '1rem', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '4px', overflowX: 'auto' }}>
-        <pre style={{ margin: 0 }}>{content}</pre>
+      <div style={{ padding: '1.25rem', background: 'hsl(225, 25%, 7%)', overflowX: 'auto', maxHeight: '420px', overflowY: 'auto' }}>
+        <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+          <code>{content || '# No llms.txt generated yet.'}</code>
+        </pre>
       </div>
     </div>
   );

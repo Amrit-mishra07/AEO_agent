@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createAudit, updateAudit, getAudit, listAudits, addPages, addSEOIssues, addSchemaGaps, addCitations } from '@/lib/db';
+import { 
+  createAudit, 
+  updateAudit, 
+  getAudit, 
+  listAudits, 
+  addPages, 
+  addSEOIssues, 
+  addSchemaGaps, 
+  addCitations,
+  addContentScores,
+  addFixes
+} from '@/lib/db';
 import { crawlSite } from '@/lib/crawler';
 import { analyzeSEO } from '@/lib/seo-analyzer';
 import { analyzeSchemas } from '@/lib/schema-analyzer';
@@ -8,6 +19,7 @@ import { generateLlmsTxt } from '@/lib/llmstxt-generator';
 import { probeCitations } from '@/lib/citation-probe';
 import { generateFixes } from '@/lib/fix-generator';
 import { calculateOverallScore, formatScore } from '@/utils/scoring';
+import { withTimeout } from '@/utils/timeout';
 
 // GET: list audits or get single audit
 export async function GET(request) {
@@ -63,9 +75,18 @@ async function runAudit(auditId, url, keywords) {
     const schemaScore = formatScore(schemaResults.overallScore);
     
     // Step 4: Content Scoring (LLM)
-    let contentScore = 0;
+    let contentScore = 50;
+    let contentResults = { overallScore: 50, pageScores: [] };
     try {
-      const contentResults = await scoreContentExtractability(pages);
+      contentResults = await withTimeout(
+        scoreContentExtractability(pages),
+        60000,
+        { overallScore: 50, pageScores: [] },
+        'Content scoring'
+      );
+      if (contentResults?.pageScores?.length > 0) {
+        addContentScores(auditId, contentResults.pageScores);
+      }
       contentScore = formatScore(contentResults.overallScore);
     } catch (e) {
       console.error('Content scoring failed:', e);
@@ -75,8 +96,13 @@ async function runAudit(auditId, url, keywords) {
     // Step 5: Generate llms.txt
     let llmsTxt = '';
     try {
-      const llmsResult = await generateLlmsTxt(url, pages);
-      llmsTxt = llmsResult.content;
+      const llmsResult = await withTimeout(
+        generateLlmsTxt(url, pages),
+        30000,
+        { content: '' },
+        'llms.txt generation'
+      );
+      llmsTxt = llmsResult?.content || '';
     } catch (e) {
       console.error('llms.txt generation failed:', e);
     }
@@ -85,9 +111,16 @@ async function runAudit(auditId, url, keywords) {
     let citationScore = 0;
     try {
       if (keywords && keywords.length > 0) {
-        const citationResults = await probeCitations(url, keywords);
-        addCitations(auditId, citationResults.results);
-        citationScore = formatScore(citationResults.summary.citationRate);
+        const citationResults = await withTimeout(
+          probeCitations(url, keywords),
+          45000,
+          { results: [], summary: { citationRate: 0 } },
+          'Citation probing'
+        );
+        if (citationResults?.results?.length > 0) {
+          addCitations(auditId, citationResults.results);
+        }
+        citationScore = formatScore(citationResults?.summary?.citationRate ?? 0);
       }
     } catch (e) {
       console.error('Citation probing failed:', e);
@@ -95,11 +128,30 @@ async function runAudit(auditId, url, keywords) {
     
     // Step 7: Generate fixes
     try {
-      const fixes = await generateFixes({
-        pages,
-        seoResults,
-        schemaResults,
-      });
+      const lowExtractabilityPages = (contentResults?.pageScores || [])
+        .filter(p => (p.overallPageScore || 0) < 70)
+        .map(p => ({
+          pageUrl: p.url,
+          pageData: pages.find(pg => pg.url === p.url) || {},
+          feedback: p.feedback || {}
+        }));
+
+      const fixResults = await withTimeout(
+        generateFixes({
+          siteUrl: url,
+          pages,
+          seoIssues: seoResults.issues,
+          schemaGaps: schemaResults.gaps,
+          lowExtractabilityPages
+        }),
+        60000,
+        { fixes: [] },
+        'Fix generation'
+      );
+
+      if (fixResults?.fixes?.length > 0) {
+        addFixes(auditId, fixResults.fixes);
+      }
     } catch (e) {
       console.error('Fix generation failed:', e);
     }

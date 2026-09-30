@@ -8,15 +8,16 @@ import { generateLlmsTxt } from './llmstxt-generator.js';
  */
 export async function generateFixes(auditResults) {
   const fixes = [];
-  const { siteUrl, pages, schemaGaps, seoIssues, lowExtractabilityPages } = auditResults;
+  const { siteUrl, pages = [], schemaGaps = [], seoIssues = [], lowExtractabilityPages = [] } = auditResults;
 
   // 1. Schema JSON-LD fixes
   if (schemaGaps && schemaGaps.length > 0) {
     for (const gap of schemaGaps) {
-      const pageData = pages.find(p => p.url === gap.pageUrl) || {};
-      const schemaFix = await generateSchemaFix(gap, pageData);
+      const pageUrl = gap.pageUrl || gap.url;
+      const pageData = pages.find(p => p.url === pageUrl) || {};
+      const schemaFix = await generateSchemaFix({ ...gap, pageUrl, schemaType: gap.schemaType || gap.type }, pageData);
       if (schemaFix) {
-        fixes.push({ type: 'schema', pageUrl: gap.pageUrl, fix: schemaFix });
+        fixes.push({ type: 'schema', pageUrl, fix: schemaFix });
       }
     }
   }
@@ -32,17 +33,23 @@ export async function generateFixes(auditResults) {
   // 3. Content restructuring suggestions
   if (lowExtractabilityPages && lowExtractabilityPages.length > 0) {
     for (const page of lowExtractabilityPages) {
-      const rewrite = await generateContentRewrite(page.pageData, page.feedback);
+      const pageUrl = page.url || page.pageUrl;
+      const pageData = page.pageData || pages.find(p => p.url === pageUrl) || page;
+      const rewrite = await generateContentRewrite(pageData, page.feedback || {});
       if (rewrite) {
-        fixes.push({ type: 'content_rewrite', pageUrl: page.pageUrl, fix: rewrite });
+        fixes.push({ type: 'content_rewrite', pageUrl, fix: rewrite });
       }
     }
   }
 
   // 4. Generate llms.txt
   if (pages && pages.length > 0) {
-    const llmsTxt = await generateLlmsTxt(siteUrl, pages);
-    fixes.push({ type: 'llms_txt', fix: llmsTxt });
+    try {
+      const llmsTxt = await generateLlmsTxt(siteUrl, pages);
+      fixes.push({ type: 'llms_txt', fix: llmsTxt });
+    } catch (e) {
+      console.error('Failed to generate llms.txt in fix-generator:', e);
+    }
   }
 
   return {
@@ -61,9 +68,11 @@ export async function generateFixes(auditResults) {
  * @returns {Promise<object>}
  */
 export async function generateSchemaFix(gap, pageData) {
-  const prompt = `You are an expert SEO specialist. Generate valid JSON-LD schema for a "${gap.schemaType}" entity.
+  const schemaType = gap.schemaType || gap.type || 'Thing';
+  const pageUrl = gap.pageUrl || pageData.url || 'Unknown';
+  const prompt = `You are an expert SEO specialist. Generate valid JSON-LD schema for a "${schemaType}" entity.
 Here is the context about the page:
-URL: ${pageData.url || 'Unknown'}
+URL: ${pageUrl}
 Title: ${pageData.title || 'Unknown'}
 Content Excerpt: ${(pageData.textContent || '').slice(0, 1000)}
 
@@ -75,12 +84,12 @@ Respond ONLY with a JSON object representing the JSON-LD script content. No mark
   try {
     const jsonLd = await generateJSON(prompt);
     return {
-      schemaType: gap.schemaType,
+      schemaType,
       jsonLd: JSON.stringify(jsonLd, null, 2),
-      instructions: `Add this JSON-LD script block to the <head> or <body> of ${pageData.url}.`
+      instructions: `Add this JSON-LD script block to the <head> or <body> of ${pageUrl}.`
     };
   } catch (error) {
-    console.error('Failed to generate schema fix:', error);
+    console.error(`Failed to generate schema fix for ${schemaType}:`, error);
     return null;
   }
 }
@@ -94,14 +103,33 @@ Respond ONLY with a JSON object representing the JSON-LD script content. No mark
 export async function generateMetaFixes(seoIssues, pages) {
   const results = [];
   
+  // Group issues by pageUrl to reduce API calls and generate cohesive fixes
+  const pageIssueMap = new Map();
   for (const issue of seoIssues) {
-    const pageData = pages.find(p => p.url === issue.pageUrl) || {};
+    const pageUrl = issue.pageUrl || issue.url;
+    if (!pageUrl) continue;
+    const problem = issue.problems || (issue.issue ? `${issue.issue}: ${issue.details || ''}` : null);
+    if (!pageIssueMap.has(pageUrl)) {
+      pageIssueMap.set(pageUrl, []);
+    }
+    if (problem) {
+      if (Array.isArray(problem)) {
+        pageIssueMap.get(pageUrl).push(...problem);
+      } else {
+        pageIssueMap.get(pageUrl).push(problem);
+      }
+    }
+  }
+
+  for (const [pageUrl, problems] of pageIssueMap.entries()) {
+    if (problems.length === 0) continue;
+    const pageData = pages.find(p => p.url === pageUrl) || {};
     
     const prompt = `You are an expert SEO specialist. Fix the following meta tag issues for this page:
-URL: ${issue.pageUrl}
+URL: ${pageUrl}
 Title: ${pageData.title || 'None'}
 Content Excerpt: ${(pageData.textContent || '').slice(0, 500)}
-Issues to fix: ${JSON.stringify(issue.problems)}
+Issues to fix: ${JSON.stringify(problems)}
 
 Provide your response in JSON format exactly matching this schema:
 {
@@ -119,12 +147,12 @@ Provide your response in JSON format exactly matching this schema:
       const response = await generateJSON(prompt);
       if (response && response.fixes) {
         results.push({
-          pageUrl: issue.pageUrl,
+          pageUrl,
           fixes: response.fixes
         });
       }
     } catch (error) {
-      console.error(`Failed to generate meta fixes for ${issue.pageUrl}:`, error);
+      console.error(`Failed to generate meta fixes for ${pageUrl}:`, error);
     }
   }
 

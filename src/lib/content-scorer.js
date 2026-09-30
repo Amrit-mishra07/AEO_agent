@@ -1,4 +1,5 @@
 import { generateJSON } from './gemini.js';
+import { withTimeout } from '../utils/timeout.js';
 
 /**
  * Helper to build the prompt for content scoring.
@@ -72,13 +73,21 @@ export async function scoreContentExtractability(pages) {
     const batchPromises = batch.map(async (page) => {
       try {
         const prompt = buildScoringPrompt(page.url, page.textContent || '');
-        const result = await generateJSON(prompt);
+        const result = await withTimeout(
+          generateJSON(prompt),
+          25000,
+          null,
+          `Content scoring for ${page.url}`
+        );
+        if (!result) {
+          throw new Error('Content scoring timed out');
+        }
         return {
           url: page.url,
-          scores: result.scores,
-          overallPageScore: result.overallPageScore,
-          feedback: result.feedback,
-          suggestedImprovements: result.suggestedImprovements
+          scores: result.scores || {},
+          overallPageScore: result.overallPageScore || 50,
+          feedback: result.feedback || {},
+          suggestedImprovements: result.suggestedImprovements || []
         };
       } catch (error) {
         console.error(`Failed to score page ${page.url}:`, error);
