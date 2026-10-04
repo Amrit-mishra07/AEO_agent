@@ -141,11 +141,17 @@ export default async function AuditReportPage({ params }) {
 
   const citations = (audit.citations || []).map(row => ({
     keyword: row.target_query,
-    engine: row.ai_engine || 'Unknown',
-    status: row.snippet ? 'cited' : 'not_cited',
+    engine: row.ai_engine || 'Gemini (Google Search Grounded)',
+    status: row.citation_type || (row.snippet ? 'cited' : 'not_cited'),
+    citationType: row.citation_type || (row.snippet ? 'grounded_citation' : 'not_cited'),
+    sourceUrl: row.source_url,
+    sentiment: row.sentiment || 'neutral',
     citationContext: row.snippet,
-    competitorsCited: [],
+    competitors: row.competitors,
+    competitorsCited: row.competitors || [],
   }));
+
+  const spaPages = (audit.pages || []).filter(p => p.is_spa);
 
   let domain = audit.url;
   try {
@@ -244,6 +250,17 @@ export default async function AuditReportPage({ params }) {
         }} 
       />
 
+      {/* SPA Warning Banner if detected */}
+      {spaPages.length > 0 && (
+        <div style={{ marginBottom: '1.75rem', padding: '1rem 1.25rem', borderRadius: 'var(--radius-lg)', background: 'hsla(35, 90%, 50%, 0.1)', border: '1px solid hsla(35, 90%, 50%, 0.3)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <AlertTriangle size={20} style={{ color: 'var(--accent-warning)', flexShrink: 0 }} />
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <strong style={{ color: 'var(--accent-warning)' }}>Client-Side Rendered (SPA) Framework Detected: </strong>
+            {spaPages.length} crawled page(s) render via client-side JavaScript with minimal static HTML. AI answer engine web crawlers prioritize static HTML and may miss client-rendered text without Server-Side Rendering (SSR).
+          </div>
+        </div>
+      )}
+
       {/* KPI Overview Section */}
       <section id="overview" style={{ scrollMarginTop: '130px', marginBottom: '2.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 340px) 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
@@ -268,6 +285,21 @@ export default async function AuditReportPage({ params }) {
                 {audit.overall_score >= 80 ? 'Optimal for AI Ingestion' : audit.overall_score >= 60 ? 'Moderate Extractability' : 'Critical Synthesis Deficits'}
               </span>
             </div>
+
+            {/* Decoupled Index Badges */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div style={{ padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-md)', background: 'hsla(225, 20%, 15%, 0.7)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem' }}>
+                <span style={{ color: 'var(--text-tertiary)' }}>Technical: </span>
+                <strong style={{ color: 'var(--accent-primary)' }}>{audit.technical_score ?? audit.overall_score}/100</strong>
+              </div>
+              <div style={{ padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-md)', background: 'hsla(225, 20%, 15%, 0.7)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem' }}>
+                <span style={{ color: 'var(--text-tertiary)' }}>Visibility: </span>
+                <strong style={{ color: 'var(--accent-secondary)' }}>
+                  {audit.visibility_score !== null && audit.visibility_score !== undefined ? `${audit.visibility_score}%` : 'Unprobed'}
+                </strong>
+              </div>
+            </div>
+
             <p style={{ fontSize: '0.825rem', color: 'var(--text-tertiary)', marginTop: '0.75rem', maxWidth: 260, lineHeight: 1.5 }}>
               Aggregated across crawler hygiene, semantic markup, extractable facts, and multi-LLM citation probability.
             </p>
@@ -337,9 +369,9 @@ export default async function AuditReportPage({ params }) {
               <div style={{ margin: '0.75rem 0' }}>
                 <SEOScoreGauge score={audit.citation_score} size="default" />
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
                 <span style={{ fontWeight: 600 }}>
-                  {citations.filter(c => c.status === 'cited').length} of {citations.length} Cited
+                  {citations.filter(c => c.citationType === 'grounded_citation' || c.status === 'cited').length} Verified ({citations.filter(c => c.citationType === 'brand_mention' || c.status === 'mentioned').length} Mentions)
                 </span>
               </div>
             </div>

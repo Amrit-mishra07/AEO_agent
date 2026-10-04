@@ -45,8 +45,8 @@ export function calculateSEOScore(issues = []) {
 export function calculateSchemaScore(gaps = [], totalExpected = 0) {
   if (!gaps || gaps.length === 0) return 100;
   if (totalExpected === 0) {
-      // If we don't know total expected, just base it on gap importance
-      totalExpected = gaps.length * 2; // rough estimate
+    // If we don't know total expected, just base it on gap importance
+    totalExpected = gaps.length * 2; // rough estimate
   }
   
   const IMPORTANCE_WEIGHTS = {
@@ -71,23 +71,84 @@ export function calculateSchemaScore(gaps = [], totalExpected = 0) {
   return formatScore(score);
 }
 
-export function calculateOverallScore(seoScore, schemaScore, contentScore, citationScore) {
-  // Weighted average of all sub-scores
-  // Weights: SEO 30%, Schema 20%, Content 30%, Citation 20%
-  const WEIGHTS = {
-    seo: 0.3,
-    schema: 0.2,
-    content: 0.3,
-    citation: 0.2
-  };
+/**
+ * Calculates deterministic Technical AI Readiness Index (SEO 35%, Schema 25%, Content 40%).
+ * Independent of search queries.
+ * @param {number} seoScore 
+ * @param {number} schemaScore 
+ * @param {number} contentScore 
+ * @returns {number}
+ */
+export function calculateTechnicalReadinessScore(seoScore, schemaScore, contentScore) {
+  const seo = formatScore(seoScore) * 0.35;
+  const schema = formatScore(schemaScore) * 0.25;
+  const content = formatScore(contentScore) * 0.40;
+  return formatScore(seo + schema + content);
+}
+
+/**
+ * Calculates Empirical AI Visibility Score based on Grounded Citations, Mentions, and Sentiment.
+ * Returns null if no queries were tested.
+ * @param {Array<object>} citations 
+ * @returns {number|null}
+ */
+export function calculateVisibilityScore(citations = []) {
+  if (!citations || citations.length === 0) return null;
   
-  const seo = formatScore(seoScore) * WEIGHTS.seo;
-  const schema = formatScore(schemaScore) * WEIGHTS.schema;
-  const content = formatScore(contentScore) * WEIGHTS.content;
-  const citation = formatScore(citationScore) * WEIGHTS.citation;
-  
-  const total = seo + schema + content + citation;
-  return formatScore(total);
+  let totalScore = 0;
+  for (const c of citations) {
+    let itemScore = 0;
+    const type = c.citation_type || c.citationType || (c.isCited ? 'grounded_citation' : 'not_cited');
+    
+    if (type === 'grounded_citation') {
+      itemScore = 100;
+    } else if (type === 'brand_mention') {
+      itemScore = 50;
+    } else {
+      itemScore = 0;
+    }
+
+    const sentiment = (c.sentiment || 'neutral').toLowerCase();
+    if (sentiment === 'recommended') {
+      itemScore = Math.min(100, Math.round(itemScore * 1.2));
+    } else if (sentiment === 'criticized') {
+      itemScore = Math.round(itemScore * 0.3);
+    }
+
+    totalScore += itemScore;
+  }
+
+  return formatScore(totalScore / citations.length);
+}
+
+/**
+ * Calculates overall composite score.
+ * If citationScore is null/undefined (no keywords), gracefully defaults to Technical Readiness Score
+ * rather than docking 20 points.
+ * @param {number} seoScore 
+ * @param {number} schemaScore 
+ * @param {number} contentScore 
+ * @param {number|null} citationScore 
+ * @returns {number}
+ */
+export function calculateOverallScore(seoScore, schemaScore, contentScore, citationScore = null) {
+  if (citationScore !== null && citationScore !== undefined && !isNaN(citationScore)) {
+    // Backward-compatible 4-pillar weighting
+    const WEIGHTS = {
+      seo: 0.3,
+      schema: 0.2,
+      content: 0.3,
+      citation: 0.2
+    };
+    const seo = formatScore(seoScore) * WEIGHTS.seo;
+    const schema = formatScore(schemaScore) * WEIGHTS.schema;
+    const content = formatScore(contentScore) * WEIGHTS.content;
+    const citation = formatScore(citationScore) * WEIGHTS.citation;
+    return formatScore(seo + schema + content + citation);
+  }
+
+  // Pure technical readiness when citation was unprobed
+  return calculateTechnicalReadinessScore(seoScore, schemaScore, contentScore);
 }
 
 export function getScoreGrade(score) {

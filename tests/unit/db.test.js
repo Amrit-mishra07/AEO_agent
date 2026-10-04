@@ -5,25 +5,31 @@ import {
   createAudit, 
   getAudit, 
   updateAudit, 
+  updateAuditStage,
+  cleanupStaleAudits,
   addPages, 
   addSEOIssues, 
   addSchemaGaps, 
+  addCitations,
   addContentScores, 
   addFixes 
 } from '@/lib/db';
 
 describe('SQLite Database Operations (In-Memory)', () => {
+  let memDb;
+
   beforeEach(() => {
-    const memDb = new Database(':memory:');
+    memDb = new Database(':memory:');
     memDb.pragma('foreign_keys = ON');
     setDB(memDb);
   });
 
-  it('creates and retrieves an audit record', () => {
+  it('creates and retrieves an audit record with default stages', () => {
     const audit = createAudit('https://example.com', ['ai', 'agent']);
     expect(audit).toBeDefined();
     expect(audit.url).toBe('https://example.com');
     expect(audit.status).toBe('pending');
+    expect(audit.current_stage).toBe('pending');
 
     const retrieved = getAudit(audit.id);
     expect(retrieved.id).toBe(audit.id);
@@ -33,11 +39,13 @@ describe('SQLite Database Operations (In-Memory)', () => {
     expect(retrieved.content_scores).toEqual([]);
   });
 
-  it('updates audit status and score fields', () => {
+  it('updates audit status and decoupled score fields', () => {
     const audit = createAudit('https://example.com', ['seo']);
     updateAudit(audit.id, {
       status: 'completed',
       overall_score: 88,
+      technical_score: 85,
+      visibility_score: 90,
       seo_score: 90,
       content_score: 85
     });
@@ -45,8 +53,60 @@ describe('SQLite Database Operations (In-Memory)', () => {
     const updated = getAudit(audit.id);
     expect(updated.status).toBe('completed');
     expect(updated.overall_score).toBe(88);
+    expect(updated.technical_score).toBe(85);
+    expect(updated.visibility_score).toBe(90);
     expect(updated.seo_score).toBe(90);
     expect(updated.content_score).toBe(85);
+  });
+
+  it('updates current stage dynamically', () => {
+    const audit = createAudit('https://example.com', ['crawler']);
+    updateAuditStage(audit.id, 'crawl');
+    expect(getAudit(audit.id).current_stage).toBe('crawl');
+
+    updateAuditStage(audit.id, 'content');
+    expect(getAudit(audit.id).current_stage).toBe('content');
+  });
+
+  it('cleans up stale audits stuck in running state', () => {
+    const audit = createAudit('https://stale.com', ['test']);
+    updateAudit(audit.id, { status: 'running' });
+
+    // Artificially age the audit record updated_at by 30 minutes
+    memDb.prepare(`
+      UPDATE audits 
+      SET updated_at = datetime('now', '-30 minutes') 
+      WHERE id = ?
+    `).run(audit.id);
+
+    const cleaned = cleanupStaleAudits(memDb, 15);
+    expect(cleaned).toBe(1);
+
+    const afterCleanup = getAudit(audit.id);
+    expect(afterCleanup.status).toBe('failed');
+  });
+
+  it('stores and retrieves citations with type, sentiment, and competitors', () => {
+    const audit = createAudit('https://example.com', ['analytics']);
+    addCitations(audit.id, [
+      {
+        keyword: 'best product analytics',
+        engine: 'Gemini (Google Search Grounded)',
+        sourceUrl: 'https://example.com/docs',
+        snippet: 'Example is recommended for product analytics.',
+        citationType: 'grounded_citation',
+        sentiment: 'recommended',
+        competitors: ['mixpanel.com', 'amplitude.com']
+      }
+    ]);
+
+    const retrieved = getAudit(audit.id);
+    expect(retrieved.citations.length).toBe(1);
+    const cite = retrieved.citations[0];
+    expect(cite.target_query).toBe('best product analytics');
+    expect(cite.citation_type).toBe('grounded_citation');
+    expect(cite.sentiment).toBe('recommended');
+    expect(JSON.parse(cite.competitors)).toContain('mixpanel.com');
   });
 
   it('stores and retrieves granular content scores', () => {

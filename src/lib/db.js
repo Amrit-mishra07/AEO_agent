@@ -44,6 +44,31 @@ function addColumnIfNotExists(db, tableName, columnName, columnDef) {
   }
 }
 
+/**
+ * Sweeps the database for orphaned audits stuck in 'running' state after a crash or restart.
+ * @param {import('better-sqlite3').Database} db 
+ * @param {number} maxAgeMinutes 
+ * @returns {number} Number of recovered audits
+ */
+export function cleanupStaleAudits(db, maxAgeMinutes = 15) {
+  try {
+    const stmt = db.prepare(`
+      UPDATE audits
+      SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+      WHERE status = 'running'
+        AND datetime(updated_at, '+' || ? || ' minutes') < datetime('now')
+    `);
+    const result = stmt.run(maxAgeMinutes);
+    if (result.changes > 0) {
+      console.log(`[Crash Sweeper] Marked ${result.changes} stale/orphaned audit(s) as failed.`);
+    }
+    return result.changes;
+  } catch (err) {
+    console.error('[Crash Sweeper] Error during cleanup:', err.message);
+    return 0;
+  }
+}
+
 export function initializeDB(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS audits (
@@ -51,12 +76,15 @@ export function initializeDB(db) {
       url TEXT NOT NULL,
       keywords TEXT,
       status TEXT DEFAULT 'pending',
+      current_stage TEXT DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       seo_score INTEGER,
       schema_score INTEGER,
       content_score INTEGER,
       citation_score INTEGER,
+      technical_score INTEGER,
+      visibility_score INTEGER,
       overall_score INTEGER,
       llms_txt TEXT,
       completed_at DATETIME
@@ -69,6 +97,8 @@ export function initializeDB(db) {
       title TEXT,
       status_code INTEGER,
       type TEXT,
+      is_spa INTEGER DEFAULT 0,
+      spa_warning TEXT,
       content_rewrite TEXT,
       FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE
     );
@@ -105,6 +135,9 @@ export function initializeDB(db) {
       source_url TEXT,
       snippet TEXT,
       ai_engine TEXT,
+      citation_type TEXT DEFAULT 'not_cited',
+      sentiment TEXT DEFAULT 'neutral',
+      competitors TEXT,
       FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE
     );
 
@@ -126,11 +159,22 @@ export function initializeDB(db) {
   `);
 
   // Ensure backward compatibility if tables already existed
+  addColumnIfNotExists(db, 'audits', 'current_stage', "TEXT DEFAULT 'pending'");
+  addColumnIfNotExists(db, 'audits', 'technical_score', 'INTEGER');
+  addColumnIfNotExists(db, 'audits', 'visibility_score', 'INTEGER');
+  addColumnIfNotExists(db, 'pages', 'is_spa', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists(db, 'pages', 'spa_warning', 'TEXT');
+  addColumnIfNotExists(db, 'pages', 'content_rewrite', 'TEXT');
   addColumnIfNotExists(db, 'schema_gaps', 'page_url', 'TEXT');
   addColumnIfNotExists(db, 'schema_gaps', 'generated_fix', 'TEXT');
   addColumnIfNotExists(db, 'seo_issues', 'fix_suggestion', 'TEXT');
   addColumnIfNotExists(db, 'seo_issues', 'generated_fix', 'TEXT');
-  addColumnIfNotExists(db, 'pages', 'content_rewrite', 'TEXT');
+  addColumnIfNotExists(db, 'citations', 'citation_type', "TEXT DEFAULT 'not_cited'");
+  addColumnIfNotExists(db, 'citations', 'sentiment', "TEXT DEFAULT 'neutral'");
+  addColumnIfNotExists(db, 'citations', 'competitors', 'TEXT');
+
+  // Run startup crash recovery sweeper
+  cleanupStaleAudits(db);
 }
 
 // CRUD operations:
@@ -140,8 +184,8 @@ export function createAudit(url, keywords) {
   const db = getDB();
   const id = uuidv4();
   const stmt = db.prepare(`
-    INSERT INTO audits (id, url, keywords)
-    VALUES (@id, @url, @keywords)
+    INSERT INTO audits (id, url, keywords, status, current_stage)
+    VALUES (@id, @url, @keywords, 'pending', 'pending')
   `);
   
   stmt.run({
@@ -177,6 +221,10 @@ export function updateAudit(id, data) {
   return getAudit(id);
 }
 
+export function updateAuditStage(id, stage) {
+  return updateAudit(id, { current_stage: stage });
+}
+
 export function getAudit(id) {
   const db = getDB();
   const audit = db.prepare('SELECT * FROM audits WHERE id = ?').get(id);
@@ -202,8 +250,8 @@ export function addPages(auditId, pages) {
   if (!pages || pages.length === 0) return;
   const db = getDB();
   const stmt = db.prepare(`
-    INSERT INTO pages (id, audit_id, url, title, status_code, type)
-    VALUES (@id, @audit_id, @url, @title, @status_code, @type)
+    INSERT INTO pages (id, audit_id, url, title, status_code, type, is_spa, spa_warning)
+    VALUES (@id, @audit_id, @url, @title, @status_code, @type, @is_spa, @spa_warning)
   `);
   
   const insertMany = db.transaction((items) => {
@@ -214,7 +262,9 @@ export function addPages(auditId, pages) {
         url: item.url,
         title: item.title || null,
         status_code: item.status_code || null,
-        type: item.type || null
+        type: item.type || null,
+        is_spa: item.isSpa ? 1 : 0,
+        spa_warning: item.spaWarning || null
       });
     }
   });
@@ -279,19 +329,26 @@ export function addCitations(auditId, citations) {
   if (!citations || citations.length === 0) return;
   const db = getDB();
   const stmt = db.prepare(`
-    INSERT INTO citations (id, audit_id, target_query, source_url, snippet, ai_engine)
-    VALUES (@id, @audit_id, @target_query, @source_url, @snippet, @ai_engine)
+    INSERT INTO citations (id, audit_id, target_query, source_url, snippet, ai_engine, citation_type, sentiment, competitors)
+    VALUES (@id, @audit_id, @target_query, @source_url, @snippet, @ai_engine, @citation_type, @sentiment, @competitors)
   `);
   
   const insertMany = db.transaction((items) => {
     for (const item of items) {
+      const compStr = Array.isArray(item.competitors) 
+        ? JSON.stringify(item.competitors) 
+        : (item.competitorsCited || item.competitors || null);
+
       stmt.run({
         id: uuidv4(),
         audit_id: auditId,
         target_query: item.keyword || item.target_query || '',
-        source_url: item.source_url || null,
+        source_url: item.source_url || item.sourceUrl || null,
         snippet: item.citationContext || item.snippet || null,
-        ai_engine: item.engine || item.ai_engine || null
+        ai_engine: item.engine || item.ai_engine || null,
+        citation_type: item.citationType || (item.isCited ? 'grounded_citation' : 'not_cited'),
+        sentiment: item.sentiment || 'neutral',
+        competitors: compStr
       });
     }
   });

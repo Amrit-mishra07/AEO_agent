@@ -50,15 +50,30 @@ export function AuditLoadingState({ auditId, url }) {
     return () => clearInterval(tipInterval);
   }, []);
 
-  // Poll the API to check audit completion
+  // Poll the API to check audit completion & update stage
   useEffect(() => {
     if (!auditId) return;
+
+    const STAGE_INDEX_MAP = {
+      crawl: 0,
+      seo: 1,
+      schema: 2,
+      content: 3,
+      citation: 4,
+      fixes: 5,
+      completed: 5,
+    };
 
     const poll = setInterval(async () => {
       try {
         const res = await fetch(`/api/audit?id=${auditId}`);
         if (!res.ok) return;
         const data = await res.json();
+        
+        if (data.current_stage && STAGE_INDEX_MAP[data.current_stage] !== undefined) {
+          setActiveStep(prev => Math.max(prev, STAGE_INDEX_MAP[data.current_stage]));
+        }
+
         if (data.status === 'completed' || data.status === 'failed') {
           clearInterval(poll);
           router.refresh();
@@ -66,7 +81,7 @@ export function AuditLoadingState({ auditId, url }) {
       } catch {
         // Silently ignore polling network errors
       }
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(poll);
   }, [auditId, router]);

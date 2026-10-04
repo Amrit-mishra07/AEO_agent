@@ -3,6 +3,8 @@ import {
   formatScore, 
   calculateSEOScore, 
   calculateSchemaScore, 
+  calculateTechnicalReadinessScore,
+  calculateVisibilityScore,
   calculateOverallScore, 
   getScoreGrade, 
   getScoreColor 
@@ -25,6 +27,34 @@ describe('scoring math and utilities', () => {
 
     // 80*0.3 (24) + 60*0.2 (12) + 90*0.3 (27) + 50*0.2 (10) = 73
     expect(calculateOverallScore(80, 60, 90, 50)).toBe(73);
+  });
+
+  it('calculates Technical Readiness Index independently', () => {
+    // SEO 35%, Schema 25%, Content 40%
+    // 100*0.35 + 80*0.25 + 90*0.40 = 35 + 20 + 36 = 91
+    expect(calculateTechnicalReadinessScore(100, 80, 90)).toBe(91);
+
+    // When citationScore is null/unprobed, overall score defaults to Technical Readiness
+    expect(calculateOverallScore(100, 80, 90, null)).toBe(91);
+    expect(calculateOverallScore(100, 80, 90)).toBe(91);
+  });
+
+  it('calculates Empirical Visibility Score with grounded types and sentiment', () => {
+    expect(calculateVisibilityScore([])).toBe(null);
+    expect(calculateVisibilityScore(null)).toBe(null);
+
+    const citations = [
+      { citation_type: 'grounded_citation', sentiment: 'recommended' }, // 100 * 1.2 = 100 capped
+      { citation_type: 'brand_mention', sentiment: 'neutral' },          // 50 * 1.0 = 50
+      { citation_type: 'not_cited', sentiment: 'neutral' }               // 0
+    ];
+    // (100 + 50 + 0) / 3 = 50
+    expect(calculateVisibilityScore(citations)).toBe(50);
+
+    const criticized = [
+      { citation_type: 'grounded_citation', sentiment: 'criticized' }    // 100 * 0.3 = 30
+    ];
+    expect(calculateVisibilityScore(criticized)).toBe(30);
   });
 
   it('determines correct letter grades', () => {

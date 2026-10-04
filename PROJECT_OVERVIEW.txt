@@ -1,0 +1,242 @@
+================================================================================
+AEO AGENT - COMPREHENSIVE PROJECT OVERVIEW & TECHNICAL EXPLANATION
+================================================================================
+
+1. WHAT IS THIS PROJECT?
+--------------------------------------------------------------------------------
+AEO Agent (Answer Engine Optimization Agent) is a full-stack automated 
+diagnostic, auditing, and optimization platform designed for the new era of 
+AI-driven search.
+
+For decades, digital marketing and web engineering focused on Traditional SEO 
+(Search Engine Optimization)—optimizing web pages to rank among the "10 blue links" 
+on Google Search. Today, search behavior is shifting towards Answer Engines 
+and Generative AI systems such as:
+  * Google Gemini & Google AI Overviews
+  * OpenAI ChatGPT / SearchGPT
+  * Perplexity AI
+  * Anthropic Claude
+
+Instead of clicking through lists of links, users now receive synthesized, direct 
+answers. An Answer Engine Optimization (AEO) tool determines whether a website 
+is technically, semantically, and structurally prepared for AI models to discover, 
+ingest, comprehend, and cite it as an authoritative source.
+
+AEO Agent allows any user to provide a website URL and optional target keywords. 
+In response, it crawls the website, executes deep technical and LLM-powered 
+evaluations, computes multi-dimensional readiness scores, tests whether AI models 
+currently cite the brand, and autonomously generates drop-in code fixes, structured 
+schemas, rewritten content, and an official "llms.txt" file.
+
+
+2. WHAT ARE YOU TRYING TO ACHIEVE? (GOALS & PURPOSE)
+--------------------------------------------------------------------------------
+The primary goals of this project are:
+
+  1. Benchmark AI Readiness:
+     Provide website owners, developers, and content strategists with an objective, 
+     graded score (0 to 100, A+ to F) reflecting how well their site can be parsed 
+     and cited by Large Language Models.
+
+  2. Detect Technical & Semantic Blindspots:
+     Pinpoint specific technical deficiencies that hinder AI crawlers, such as missing 
+     headings, non-canonical URLs, missing OpenGraph tags, or absent Schema.org JSON-LD.
+
+  3. Measure Real AI Visibility (Citation Rate):
+     Determine empirically whether AI engines currently mention or credit the target 
+     brand when answering search queries in that domain.
+
+  4. Evaluate Content "Extractability" Across 6 Dimensions:
+     Measure whether on-page prose provides direct, factual, and scannable answers, 
+     rather than generic marketing fluff that LLMs cannot cleanly extract.
+
+  5. Automated Remediation (Close the Loop):
+     Traditional audit tools merely list problems. AEO Agent acts as an active agent 
+     by generating ready-to-use solutions: validated JSON-LD scripts, optimized meta 
+     tags, content restructuring suggestions, and an official /llms.txt specification.
+
+
+3. HOW ARE YOU ACHIEVING IT? (THE 7-STEP AUDIT PIPELINE)
+--------------------------------------------------------------------------------
+When a user submits a URL on the web interface, the system initiates an asynchronous 
+audit pipeline managed by Next.js API route handlers and a local SQLite database.
+
+Pipeline Overview:
+
+  [User Input: Target URL + Keywords]
+                 │
+                 ▼
+  Step 1: Web Crawler (Cheerio & robots-parser)
+                 │
+                 ├──► Step 2: Technical SEO Engine (Title, Headers, Meta, Images)
+                 │
+                 ├──► Step 3: Schema.org Analyzer (JSON-LD Validation & Gap Detection)
+                 │
+                 ├──► Step 4: 6-D Content Extractability (Evaluated via Google Gemini)
+                 │
+                 ├──► Step 5: Real-Time AI Citation Probe (Probing Gemini Responses)
+                 │
+                 ├──► Step 6: Standardized llms.txt Synthesis (Prompting Gemini)
+                 │
+                 ▼
+  Step 7: Autonomous Fix Generator (Generating JSON-LD, Tags, & Rewrites)
+                 │
+                 ▼
+  [Database Storage (SQLite) & Real-time Interactive Dashboard Display]
+
+
+Detailed Breakdown of Pipeline Steps:
+
+Step 1: Site Crawling & HTML Extraction (src/lib/crawler.js)
+  * Starts at the provided root URL and inspects robots.txt using 'robots-parser' 
+    to respect crawl rules.
+  * Employs Cheerio to parse HTML, traverse internal links within the same origin, 
+    and crawl up to 10 pages up to depth 1.
+  * Strips noisy non-content elements (scripts, styles, navbars, footers, svg, iframes).
+  * Extracts metadata: Title, Meta Description, H1/H2 headings, image alt texts, 
+    canonical tags, robots directives, OpenGraph tags, JSON-LD script blocks, 
+    clean text content, and word counts.
+
+Step 2: Technical SEO Audit (src/lib/seo-analyzer.js)
+  * Executes rule-based checks across 12 criteria:
+      1. Page Title presence and optimal length (30-60 characters).
+      2. Meta Description presence and optimal length (120-160 characters).
+      3. Presence of exactly one H1 tag per page.
+      4. Heading Hierarchy (verifying H2s are not used without an H1).
+      5. Image Alt Text completeness.
+      6. Link density (detecting pages with excessive links > 300).
+      7. Canonical link presence.
+      8. Robots indexing directives (detecting accidental noindex).
+      9. Mobile Viewport configuration.
+     10. OpenGraph social metadata (og:title, og:description, og:image).
+     11. Sufficient Content Word Count (flagging thin content < 300 words).
+     12. Clean URL structure (flagging excessive query parameters).
+  * Applies weighted deductions (critical = 3, warning = 1.5, info = 0.5) to produce 
+    a calibrated 0-100 SEO score.
+
+Step 3: Schema.org & Semantic Gap Analysis (src/lib/schema-analyzer.js)
+  * Uses heuristic pattern matching (URL structure, keyword markers, page structure) 
+    to identify the page type: Homepage, Article, Product, FAQPage, HowTo, or LocalBusiness.
+  * Extracts all existing application/ld+json blocks and validates them against required 
+    properties for each Schema.org type (e.g., Organization requires name, url, logo; 
+    Article requires headline, datePublished, author).
+  * Detects missing schemas that an AI engine needs to build knowledge graph entities.
+  * Flags missing or malformed schemas and calculates a Schema Readiness Score.
+
+Step 4: 6-Dimensional AI Content Extractability (src/lib/content-scorer.js)
+  * LLMs ingest text in chunks and extract information to answer user prompts. 
+    Content that rambles or hides answers is difficult for an AI to cite.
+  * The clean text of each page is submitted to Google Gemini (gemini-2.5-flash) 
+    and scored across 6 specific dimensions (each 0 to 100):
+      1. First-Sentence Answerability: Does the initial paragraph provide a direct answer?
+      2. Definition Clarity: Are core concepts, tools, or terms explicitly defined?
+      3. Fact Specificity: Are assertions backed by concrete numbers, benchmarks, or dates?
+      4. Scannable Structure: Does the content utilize headers, bullet points, and tables?
+      5. FAQ Presence: Does the page present clear question-and-answer pairings?
+      6. Citation Readiness: Can an AI extract a concise, self-contained quote?
+  * Returns dimensional scores, qualitative feedback, and prioritized improvements.
+
+Step 5: Standardized llms.txt Generation (src/lib/llmstxt-generator.js)
+  * "llms.txt" is an emerging web standard (similar to robots.txt or sitemap.xml) 
+    proposed to provide AI agents with a concise, markdown-formatted map of a website.
+  * Gemini synthesizes crawled page data into a compliant llms.txt containing:
+      - Project / Brand H1 and summary blockquote.
+      - Logically categorized H2 sections (Documentation, Features, Guides, etc.).
+      - Markdown links accompanied by one-sentence summaries for each link.
+  * Provides an instant 1-click download/copy for site operators to host at /llms.txt.
+
+Step 6: Empirical AI Citation Probing (src/lib/citation-probe.js)
+  * Tests actual AI answers against user-supplied keywords.
+  * Submits search queries to Gemini simulating real-world conversational search.
+  * Analyzes the AI's response to check if the target domain or brand is cited.
+  * Calculates an overall Citation Rate (e.g., 50% of tested keywords cited).
+
+Step 7: Autonomous Fix Generation (src/lib/fix-generator.js)
+  * Synthesizes all detected gaps into concrete, actionable artifacts:
+      - Validated JSON-LD snippets tailored with the page's actual extracted facts.
+      - Fixed HTML <title> and <meta> tags to resolve missing or sub-optimal tags.
+      - Content Rewrites: Reorganizes poorly structured pages into clear, answer-first 
+        markdown sections with mini-FAQs.
+      - Complete llms.txt file content.
+
+
+4. SCORING SYSTEM & FORMULAS
+--------------------------------------------------------------------------------
+The overall AEO score is a weighted composite of four key pillars:
+
+  Overall Score = (SEO Score * 0.30) 
+                + (Schema Score * 0.20) 
+                + (Content Extractability Score * 0.30) 
+                + (Citation Probe Score * 0.20)
+
+Grading Scale:
+  * 95 - 100 : A+ (Exceptional AI readiness)
+  * 90 - 94  : A  (Strong AI readiness)
+  * 85 - 89  : B+
+  * 80 - 84  : B  (Solid baseline, minor gaps)
+  * 75 - 79  : C+
+  * 70 - 74  : C  (Needs restructuring)
+  * 60 - 69  : D  (Poor AI discoverability)
+  * Below 60 : F  (Virtually invisible to AI answer engines)
+
+
+5. ARCHITECTURE & CODEBASE STRUCTURE
+--------------------------------------------------------------------------------
+The project is built on Next.js 16 (React 19) using the App Router.
+
+Key Directories & Files:
+
+  src/
+  ├── app/
+  │   ├── page.js                    # Landing page, hero, URL submit form, past audits list
+  │   ├── layout.js                  # Global layout, fonts, header, styling
+  │   ├── globals.css                # Custom dark-mode design system & animations
+  │   ├── api/audit/route.js         # REST endpoints (POST to create audit, GET to read status)
+  │   └── audit/[id]/page.js         # Comprehensive audit report dashboard
+  ├── components/
+  │   ├── AuditForm.js               # URL & keyword input component with preset examples
+  │   ├── SEOScoreGauge.js           # Visual SVG radial score gauge
+  │   ├── ReportCard.js              # Bento-style card wrapper
+  │   ├── IssueList.js               # Interactive list of SEO warnings and critical errors
+  │   ├── SchemaGapList.js           # Missing JSON-LD schemas with copy-code buttons
+  │   ├── ContentScoreCard.js        # 6-D content extractability radar/bar breakdown
+  │   ├── CitationTable.js           # Keyword-by-keyword AI citation probe results
+  │   ├── LlmsTxtPreview.js          # Live viewer and copy button for generated llms.txt
+  │   └── ExportReportButton.js      # Export report functionality
+  ├── lib/
+  │   ├── crawler.js                 # Cheerio web scraper with robots.txt support
+  │   ├── seo-analyzer.js            # Algorithmic SEO rule checks
+  │   ├── schema-analyzer.js         # Schema.org extraction, typing, and validation
+  │   ├── content-scorer.js          # 6-D LLM extractability scoring via Gemini
+  │   ├── citation-probe.js          # Probes Gemini to measure citation frequency
+  │   ├── llmstxt-generator.js       # Synthesizes markdown llms.txt standard
+  │   ├── fix-generator.js           # Generates JSON-LD, meta tags, and rewrites
+  │   ├── gemini.js                  # Google GenAI SDK client wrapper with retry logic
+  │   └── db.js                      # SQLite database operations (better-sqlite3)
+  └── utils/
+      ├── scoring.js                 # Mathematical weighting and grading utilities
+      └── timeout.js                 # Resilient promise timeout wrappers
+
+  data/
+  └── audits.db                      # Local persistent SQLite database
+
+
+6. TECHNOLOGY STACK
+--------------------------------------------------------------------------------
+  * Framework: Next.js 16.3.6 (App Router), React 19.2.8
+  * AI / LLM SDK: @google/genai (^2.24.0) using Gemini 2.5 Flash
+  * Web Scraping: Cheerio (^1.2.0)
+  * Robot Directives: robots-parser (^3.0.1)
+  * Database: better-sqlite3 (^13.0.3)
+  * Icons: Lucide React (^1.49.0)
+  * Testing: Vitest (^5.0.3)
+
+
+7. SUMMARY OF VALUE
+--------------------------------------------------------------------------------
+AEO Agent bridges the gap between traditional web search and generative AI answer 
+engines. By crawling sites, measuring citation performance, scoring content 
+extractability, and autonomously outputting schemas, optimized content, and llms.txt, 
+it gives website developers and business owners a complete end-to-end toolkit to 
+thrive in the AI search landscape.
+================================================================================
