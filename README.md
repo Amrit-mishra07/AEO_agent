@@ -6,18 +6,21 @@
 
   **Autonomous Answer Engine Optimization & Retrieval Diagnostics Engine**
 
-  *Diagnose, benchmark, and optimize web properties for Google AI Overviews, Perplexity, ChatGPT Search, and Claude.*
+  *Diagnose, benchmark, and optimize web properties for AI answer engines using Gemini and live Google Search Grounding.*
 
   <p align="center">
-    <a href="#test-suite"><img src="https://img.shields.io/badge/Vitest-33%20Passed%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" /></a>
+    <a href="#test-suite"><img src="https://img.shields.io/badge/Vitest-57%20Passed%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" /></a>
+    <a href="#test-suite"><img src="https://img.shields.io/badge/Lighthouse-96%2B%20Across%20Metrics-10b981?style=for-the-badge&logo=lighthouse&logoColor=white" alt="Lighthouse" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/Next.js-16.3.6%20App%20Router-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/React-19.2.8-61dafb?style=for-the-badge&logo=react&logoColor=black" alt="React 19" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/Google%20GenAI-Gemini%202.5%20Flash-4285f4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini" /></a>
+    <a href="#technology-stack"><img src="https://img.shields.io/badge/Runtime%20Chart%20Deps-0%20(Pure%20SVG)-10b981?style=for-the-badge" alt="Zero Chart Deps" /></a>
     <a href="#production-deployment"><img src="https://img.shields.io/badge/Docker-Standalone%20Optimized-2496ed?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
     <a href="#license"><img src="https://img.shields.io/badge/License-MIT-a855f7?style=for-the-badge" alt="License" /></a>
   </p>
 
   <p align="center">
+    <a href="#-visual-showcase--interactive-report">Interactive Demo</a> •
     <a href="#quickstart">Quickstart</a> •
     <a href="#the-posthog-reality-check">The PostHog Reality Check</a> •
     <a href="#core-architecture">Architecture</a> •
@@ -28,6 +31,31 @@
   </p>
 
 </div>
+
+---
+
+## 📸 Visual Showcase & Interactive Report
+
+> 💡 **10-Second Test:** Try the built-in sandbox report at [`/demo`](http://localhost:3000/demo) with realistic SaaS and E-commerce sample audits. No installation, setup, or API key required.
+
+<div align="center">
+  <img src="docs/screenshots/phase6-demo-light.png" alt="AEO Agent Analyst Diagnostic Report (Light Theme)" width="100%" />
+  <p><em>Executive Summary, 4-Vector Diagnostic Gauges, Priority Fixes, and Share of Voice Extraction Matrix.</em></p>
+</div>
+
+<details>
+<summary><strong>View Additional Dashboard & Diagnostic Screenshots (Dark Mode & Mobile)</strong></summary>
+<br />
+
+| Diagnostic In-Progress (Live 7-Stage Polling) | Clean Dark Mode Report |
+| :---: | :---: |
+| <img src="docs/screenshots/phase3-running-light.png" alt="Running Audit Diagnostic" width="100%" /> | <img src="docs/screenshots/phase5-report-dark.png" alt="Dark Mode Report" width="100%" /> |
+
+| Responsive Mobile View (360px) | Transparent Methodology & Scoring |
+| :---: | :---: |
+| <img src="docs/screenshots/phase6-demo-360px.png" alt="Mobile Report" width="100%" /> | <img src="docs/screenshots/phase6-methodology.png" alt="Methodology Page" width="100%" /> |
+
+</details>
 
 ---
 
@@ -249,12 +277,13 @@ $$\text{Visibility Score} = \frac{1}{N} \sum_{i=1}^{N} \Big( \text{BaseScore}(c_
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
 | **Framework** | Next.js 16.3.6 (Turbopack, App Router) | React Server Components & API route handlers |
-| **UI Library** | React 19.2.8 + Lucide Icons | Responsive Bento dashboard & SVG gauges |
+| **UI Library** | React 19.2.8 + Lucide Icons | Analyst report design system with CSS custom tokens |
+| **Visualizations** | Pure SVG React Components | Zero runtime charting dependencies (ScoreRing, RankedBars, HeatTable) |
 | **AI / Grounding** | `@google/genai` (^2.24.0) | Gemini 2.5 Flash with Google Search Grounding |
 | **Database** | `better-sqlite3` (^13.0.3) | Synchronous, zero-latency SQLite with WAL mode |
 | **HTML Parser** | `cheerio` (^1.2.0) | Robust DOM extraction and tag parsing |
 | **Robots Rules** | `robots-parser` (^3.0.1) | Compliance with robots.txt crawl directives |
-| **Test Suite** | `vitest` (^5.0.3) | Fast unit test runner (33 tests, 100% passing) |
+| **Test Suite** | `vitest` (^5.0.3) | Fast unit test runner (57 tests, 100% passing) |
 
 ---
 
@@ -279,6 +308,9 @@ cp .env.example .env.local
 Edit `.env.local`:
 ```env
 GEMINI_API_KEY="your_actual_gemini_api_key_here"
+
+# Optional: configure model (defaults to gemini-2.5-flash)
+GEMINI_MODEL="gemini-2.5-flash"
 ```
 
 ### 3. Run Development Server
