@@ -11,7 +11,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * @returns {Promise<string>}
  */
 export async function generateContent(prompt, options = {}) {
-  const model = options.model || 'gemini-2.5-flash';
+  const model = options.model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const config = {};
   
   if (options.temperature !== undefined) config.temperature = options.temperature;
@@ -49,7 +49,7 @@ export async function generateContent(prompt, options = {}) {
  * @returns {Promise<{ text: string, sources: Array<{url: string, title: string}>, webSearchQueries: string[] }>}
  */
 export async function generateGroundedSearch(prompt, options = {}) {
-  const model = options.model || 'gemini-2.5-flash';
+  const model = options.model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const config = {
     tools: [{ googleSearch: {} }]
   };

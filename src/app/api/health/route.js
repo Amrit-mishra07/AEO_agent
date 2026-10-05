@@ -34,7 +34,7 @@ export async function GET() {
       },
       gemini_ai: {
         configured: geminiConfigured,
-        model: 'gemini-2.5-flash'
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
       }
     },
     responseTimeMs: Date.now() - startTime
