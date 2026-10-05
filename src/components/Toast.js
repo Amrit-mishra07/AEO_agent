@@ -10,7 +10,8 @@ export function ToastProvider({ children }) {
 
   const addToast = useCallback((message, type = 'info', duration = 3000) => {
     const id = Date.now() + Math.random().toString(36).substring(2, 5);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    // Keep at most 3 visible toasts
+    setToasts((prev) => [...prev.slice(-2), { id, message, type }]);
 
     if (duration > 0) {
       setTimeout(() => {
@@ -33,38 +34,68 @@ export function ToastProvider({ children }) {
   const getIcon = (type) => {
     switch (type) {
       case 'success':
-        return <CheckCircle2 size={16} color="var(--accent-primary)" />;
+        return <CheckCircle2 size={15} style={{ color: 'var(--good)' }} aria-hidden="true" />;
       case 'error':
-        return <AlertCircle size={16} color="var(--accent-danger)" />;
+        return <AlertCircle size={15} style={{ color: 'var(--bad)' }} aria-hidden="true" />;
       case 'warning':
-        return <AlertTriangle size={16} color="var(--accent-warning)" />;
+        return <AlertTriangle size={15} style={{ color: 'var(--warn)' }} aria-hidden="true" />;
       default:
-        return <Info size={16} color="var(--accent-secondary)" />;
+        return <Info size={15} style={{ color: 'var(--accent)' }} aria-hidden="true" />;
     }
   };
 
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="toast-container" aria-live="polite">
+      <div
+        className="toast-container"
+        aria-live="polite"
+        style={{
+          position: 'fixed',
+          bottom: '1.25rem',
+          right: '1.25rem',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          pointerEvents: 'none',
+        }}
+      >
         {toasts.map((t) => (
-          <div key={t.id} className="toast" role="alert">
+          <div
+            key={t.id}
+            role="status"
+            style={{
+              pointerEvents: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.65rem 0.9rem',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-sm)',
+              boxShadow: 'var(--shadow-md)',
+              fontSize: '0.8125rem',
+              maxWidth: '360px',
+            }}
+          >
             {getIcon(t.type)}
-            <span>{t.message}</span>
+            <span style={{ flex: 1 }}>{t.message}</span>
             <button
+              type="button"
               onClick={() => removeToast(t.id)}
+              aria-label="Dismiss toast"
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'var(--text-tertiary)',
+                color: 'var(--text-3)',
                 cursor: 'pointer',
-                marginLeft: 'auto',
-                display: 'flex',
-                alignItems: 'center',
                 padding: '2px',
+                display: 'inline-flex',
               }}
             >
-              <X size={14} />
+              <X size={13} aria-hidden="true" />
             </button>
           </div>
         ))}
@@ -76,7 +107,6 @@ export function ToastProvider({ children }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    // Graceful fallback if used outside provider
     return {
       success: (m) => console.log('Toast success:', m),
       error: (m) => console.error('Toast error:', m),

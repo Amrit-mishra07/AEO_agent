@@ -1,9 +1,5 @@
-import { ReportSkeleton } from '@/components/LoadingStates';
+import ReportSkeleton from '@/components/running/ReportSkeleton';
 
 export default function Loading() {
-  return (
-    <div className="container page-content">
-      <ReportSkeleton />
-    </div>
-  );
+  return <ReportSkeleton />;
 }

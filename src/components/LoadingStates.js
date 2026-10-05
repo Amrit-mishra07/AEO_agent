@@ -14,10 +14,10 @@ const PIPELINE_STAGES = [
 ];
 
 const AEO_TIPS = [
-  'Answer Engines prioritize concise, declarative definitions within the first 30 words of an article.',
-  'Perplexity and ChatGPT cite structured FAQPage and Article schemas 3.2x more frequently.',
+  'Answer engines prioritize concise, declarative definitions within the first 30 words of an article.',
+  'Structured FAQPage and Article schemas help web crawlers index key facts with precision.',
   'An /llms.txt file gives AI web crawlers a curated markdown index of your documentation.',
-  'High fact-specificity with dates and metric numbers prevents AI hallucinations during retrieval.'
+  'High fact-specificity with dates and verifiable metrics prevents hallucination during retrieval.',
 ];
 
 export function AuditLoadingState({ auditId, url }) {
