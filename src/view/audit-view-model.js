@@ -161,12 +161,14 @@ export function toAuditViewModel(rawAudit, history = []) {
       }
     }
 
+    const schemaMessage = row.message || row.details || 'Missing schema entity';
     return {
       id: row.id || `schema-gap-${idx}`,
-      schemaType: row.type || 'Thing',
-      status: (row.importance || 'missing').toLowerCase(),
-      message: row.message || 'Missing schema entity',
-      pageUrl: row.page_url || '',
+      schemaType: row.type || row.schema_type || row.schemaType || 'Thing',
+      status: (row.importance || row.status || 'missing').toLowerCase(),
+      message: schemaMessage,
+      details: schemaMessage,
+      pageUrl: row.page_url || row.pageUrl || '',
       generatedFix: fixCode,
       isValidJson,
       hasPlaceholders,

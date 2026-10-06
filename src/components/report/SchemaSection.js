@@ -76,7 +76,7 @@ export default function SchemaSection({ gaps = [] }) {
               </div>
 
               <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                {gap.details}
+                {gap.message || gap.details}
               </p>
 
               {/* Generated Fix / Schema Block */}
