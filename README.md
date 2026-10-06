@@ -9,7 +9,8 @@
   *Diagnose, benchmark, and optimize web properties for AI answer engines using Gemini and live Google Search Grounding.*
 
   <p align="center">
-    <a href="#test-suite"><img src="https://img.shields.io/badge/Vitest-65%20Passed%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" /></a>
+    <a href="https://github.com/Amrit-mishra07/AEO_agent/actions/workflows/ci.yml"><img src="https://github.com/Amrit-mishra07/AEO_agent/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+    <a href="#test-suite"><img src="https://img.shields.io/badge/Vitest-84%20Passed%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" /></a>
     <a href="#test-suite"><img src="https://img.shields.io/badge/Lighthouse-96%2B%20Across%20Metrics-10b981?style=for-the-badge&logo=lighthouse&logoColor=white" alt="Lighthouse" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/Next.js-16.3.6%20App%20Router-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/React-19.2.8-61dafb?style=for-the-badge&logo=react&logoColor=black" alt="React 19" /></a>
@@ -322,7 +323,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. Run Test Suite
 ```bash
+# Run all tests (84 tests across 16 test files)
 npm test
+
+# Run unit tests only (65 tests across 13 test files)
+npm run test:unit
+
+# Run end-to-end tests only (19 tests across 3 test files)
+npm run test:e2e
+
+# Run all test suites explicitly
+npm run test:all
 ```
 
 ---
@@ -470,54 +481,72 @@ Yes. While Cheerio parses static HTML, AEO Agent's crawler includes automated SP
 
 ```
 aeo_agent/
+├── .github/
+│   └── workflows/ci.yml           # GitHub Actions automated test, lint & build CI
 ├── Dockerfile                     # Multi-stage production container build
 ├── .dockerignore                  # Docker build exclusions
 ├── .env.example                   # Environment variable template
+├── LICENSE                        # MIT Open Source License
 ├── next.config.mjs                # Standalone output & SQLite external config
-├── package.json                   # Dependencies and scripts
-├── vitest.config.mjs              # Test runner configuration
-├── data/                          # Persistent SQLite database storage
+├── package.json                   # Dependencies, scripts & engine requirements
+├── vitest.config.mjs              # Test runner configuration (Node env & 15s timeout)
+├── data/                          # Persistent SQLite database storage (WAL mode)
 │   └── audits.db                  # Local database file
 ├── src/
 │   ├── app/
-│   │   ├── layout.js              # Root layout & dark design system
-│   │   ├── page.js                # Landing page & recent audits
-│   │   ├── globals.css            # Dark theme, gauges, and bento styling
+│   │   ├── layout.js              # Root layout & dark design system tokens
+│   │   ├── page.js                # Landing page & audit launch form
+│   │   ├── demo/page.js           # Zero-setup interactive demo sandbox
+│   │   ├── methodology/page.js    # Transparent 4-vector scoring methodology
+│   │   ├── globals.css            # Clean token system, gauges, and bento styling
 │   │   ├── api/
-│   │   │   ├── audit/route.js     # Audit creation & retrieval handler
-│   │   │   └── health/route.js    # Health check probe
-│   │   └── audit/[id]/page.js     # Interactive diagnostic report page
+│   │   │   ├── audit/route.js     # Audit creation, rate limiter, SSRF & retrieval
+│   │   │   └── health/route.js    # Health check probe (SQLite + Gemini)
+│   │   └── audit/[id]/page.js     # Live stage polling & interactive report page
 │   ├── components/
-│   │   ├── AuditForm.js           # URL input with presets & tags
-│   │   ├── CitationTable.js       # Grounded citations, sentiment, and competitor chips
-│   │   ├── ContentScoreCard.js    # 6-D content extractability cards
-│   │   ├── ExportReportButton.js  # Markdown, JSON, and link export
-│   │   ├── IssueList.js           # Technical SEO errors and warnings
-│   │   ├── LoadingStates.js       # Live pipeline stepper synced with backend
-│   │   ├── SEOScoreGauge.js       # Radial SVG score gauge
-│   │   └── SchemaGapList.js       # Missing schemas with 1-click copy-code
+│   │   ├── report/                # Executive summary, sections & priority fixes
+│   │   ├── viz/                   # Pure SVG meters, gauges, and ranked bars
+│   │   ├── running/               # 7-stage live progress stepper & skeleton
+│   │   └── ui/                    # Badges, buttons, cards, and theme toggles
+│   ├── view/
+│   │   ├── audit-view-model.js    # Pure DB-to-view adapter & competitor normalizer
+│   │   ├── priority.js            # Deterministic top-5 priority fix ranking
+│   │   ├── share-of-voice.js      # Competitor share of voice calculator
+│   │   └── summary.js             # Executive plain-text & markdown generator
 │   ├── lib/
 │   │   ├── citation-probe.js      # Google Search Grounding & apex domain matching
-│   │   ├── content-scorer.js      # 6-D Gemini content extractability scoring
+│   │   ├── content-scorer.js      # 6-D Gemini content extractability scoring (temp: 0)
 │   │   ├── crawler.js             # Cheerio web scraper with SSRF shield & SPA detector
 │   │   ├── db.js                  # SQLite CRUD, migrations, and crash sweeper
 │   │   ├── fix-generator.js       # Autonomous JSON-LD, meta, and rewrite generator
 │   │   ├── gemini.js              # Google GenAI client wrapper with search grounding
 │   │   ├── llmstxt-generator.js   # Compliant /llms.txt generator
-│   │   ├── schema-analyzer.js     # Schema.org validation and gap detector
-│   │   └── seo-analyzer.js        # 12-point algorithmic SEO rule engine
+│   │   ├── schema-analyzer.js     # Schema.org validation and required/recommended gaps
+│   │   └── seo-analyzer.js        # 12-point algorithmic SEO rule engine (24 pt max)
 │   └── utils/
 │       ├── scoring.js             # Decoupled scoring formulas
 │       └── timeout.js             # Promise timeout wrapper
 └── tests/
-    └── unit/
-        ├── citation-probe.test.js # Apex domain, sentiment, and citation tests
-        ├── crawler.test.js        # SSRF checks, private IP filtering, and SPA tests
-        ├── db.test.js             # Database operations, sweeper, and stage tests
-        ├── health.test.js         # /api/health endpoint tests
-        ├── schema-analyzer.test.js# Schema extraction and gap detection tests
-        ├── scoring.test.js        # Mathematical formulas and decoupled score tests
-        └── seo-analyzer.test.js   # Algorithmic SEO rule tests
+    ├── helpers/
+    │   └── mock-site.js           # In-memory HTTP server fixture (zero deps)
+    ├── unit/                      # 65 unit tests across 13 test files
+    │   ├── citation-probe.test.js # Apex domain, sentiment, and citation tests
+    │   ├── crawler.test.js        # SSRF checks, private IP filtering, and SPA tests
+    │   ├── crawler-ssrf-redirect.test.js # Multi-hop redirect SSRF hop defense
+    │   ├── db.test.js             # Database operations, sweeper, and stage tests
+    │   ├── health.test.js         # /api/health endpoint tests
+    │   ├── schema-analyzer.test.js# Schema extraction and gap detection tests
+    │   ├── scoring.test.js        # Mathematical formulas and decoupled score tests
+    │   ├── seo-analyzer.test.js   # Algorithmic SEO rule tests
+    │   ├── view-history.test.js   # Historical delta comparison tests
+    │   ├── view-integration.test.js# Full DB-to-view integration tests
+    │   ├── view-model.test.js     # View model transformation tests
+    │   ├── view-sov.test.js       # Share of voice calculation tests
+    │   └── view-summary-priority.test.js # Priority fixes & summary tests
+    └── e2e/                       # 19 end-to-end tests across 3 test files
+        ├── api-contracts.e2e.test.js  # Layer 4: Health, SSRF, rate limit & concurrency
+        ├── pipeline-full.e2e.test.js  # Layers 2 & 3: Full pipeline execution & SQLite
+        └── view-rendering.e2e.test.js # Layer 5: Zero undefined & rendering integrity
 ```
 
 ---
