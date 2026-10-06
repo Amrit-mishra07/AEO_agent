@@ -88,6 +88,7 @@ export function toAuditViewModel(rawAudit, history = []) {
     id: p.id,
     url: p.url,
     title: p.title || p.url,
+    statusCode: p.status_code || p.statusCode || null,
     isSpa: Boolean(p.is_spa),
     spaWarning: p.spa_warning || null,
     contentRewrite: safeJsonParse(p.content_rewrite, null),

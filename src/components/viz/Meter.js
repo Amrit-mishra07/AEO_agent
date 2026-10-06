@@ -11,14 +11,15 @@ import React from 'react';
  * @param {string} [props.unit='/100']
  */
 export default function Meter({
-  value = 0,
+  value,
   label,
   sublabel,
   variant,
   unit = '/100',
   className = '',
 }) {
-  const clampedValue = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  const isUntested = value === null || value === undefined;
+  const clampedValue = isUntested ? 0 : Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
   // Auto determine color variant if not explicitly provided
   let color = 'var(--bad)';
@@ -48,15 +49,21 @@ export default function Meter({
         </div>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-          <strong style={{ color: 'var(--text)' }}>{clampedValue}</strong>
-          <span style={{ color: 'var(--text-3)', fontSize: '0.75rem' }}>{unit}</span>
+          {isUntested ? (
+            <span style={{ color: 'var(--text-3)', fontSize: '0.75rem' }}>Not tested</span>
+          ) : (
+            <>
+              <strong style={{ color: 'var(--text)' }}>{clampedValue}</strong>
+              <span style={{ color: 'var(--text-3)', fontSize: '0.75rem' }}>{unit}</span>
+            </>
+          )}
         </div>
       </div>
 
       {/* Bar track */}
       <div
         role="progressbar"
-        aria-valuenow={clampedValue}
+        aria-valuenow={isUntested ? undefined : clampedValue}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={label}
@@ -71,8 +78,8 @@ export default function Meter({
         <div
           style={{
             height: '100%',
-            width: `${clampedValue}%`,
-            background: color,
+            width: isUntested ? '0%' : `${clampedValue}%`,
+            background: isUntested ? 'transparent' : color,
             borderRadius: 'var(--radius-full)',
             transition: 'width 0.4s ease',
           }}

@@ -32,13 +32,54 @@ export function getApexDomain(urlOrHostname) {
 }
 
 /**
+ * Extracts or resolves the effective apex domain from a citation source,
+ * correctly handling Google Grounding redirect URLs where domain is stored in title.
+ * @param {{ url?: string, title?: string }} src
+ * @returns {string}
+ */
+export function resolveSourceDomain(src) {
+  if (!src) return '';
+  const url = src.url || '';
+  const title = (src.title || '').trim();
+
+  // If url is not a Google redirect or cloud domain, use url apex
+  if (url && !url.includes('google.com') && !url.includes('googleusercontent.com')) {
+    const fromUrl = getApexDomain(url);
+    if (fromUrl && fromUrl.includes('.')) return fromUrl;
+  }
+
+  // Google Search grounding chunks place the source domain or page title in web.title
+  if (title) {
+    const urlMatch = title.match(/(?:https?:\/\/)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if (urlMatch && urlMatch[1]) {
+      return getApexDomain(urlMatch[1]);
+    }
+    const fromTitle = getApexDomain(title);
+    if (fromTitle && fromTitle.includes('.')) {
+      return fromTitle;
+    }
+  }
+
+  return url ? getApexDomain(url) : '';
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsWordBoundary(text, word) {
+  if (!text || !word) return false;
+  const regex = new RegExp(`\\b${escapeRegex(word)}\\b`, 'i');
+  return regex.test(text);
+}
+
+/**
  * Analyzes sentiment from the sentence contexts where the brand is mentioned.
  * @param {string} contextText
  * @returns {'recommended' | 'neutral' | 'criticized'}
  */
 export function detectSentiment(contextText) {
   if (!contextText) return 'neutral';
-  const text = contextText.toLowerCase();
 
   const positiveSignals = ['best', 'top', 'recommend', 'excellent', 'leader', 'preferred', 'popular', 'great', 'ideal', 'standout', 'strong'];
   const negativeSignals = ['expensive', 'drawback', 'limitation', 'struggle', 'lacks', 'downside', 'poor', 'complex', 'steep', 'issue', 'hard'];
@@ -47,10 +88,10 @@ export function detectSentiment(contextText) {
   let negativeScore = 0;
 
   for (const word of positiveSignals) {
-    if (text.includes(word)) positiveScore++;
+    if (containsWordBoundary(contextText, word)) positiveScore++;
   }
   for (const word of negativeSignals) {
-    if (text.includes(word)) negativeScore++;
+    if (containsWordBoundary(contextText, word)) negativeScore++;
   }
 
   if (positiveScore > negativeScore) return 'recommended';
@@ -69,15 +110,15 @@ export function detectSentiment(contextText) {
 export function analyzeCitation(groundedResult, siteUrl, keyword) {
   const targetApex = getApexDomain(siteUrl);
   const brandName = targetApex.split('.')[0].toLowerCase();
-  const textLower = (groundedResult.text || '').toLowerCase();
+  const text = groundedResult.text || '';
 
   let citationType = 'not_cited';
   let sourceUrl = null;
   let citationContext = null;
 
-  // 1. Check if any grounded chunk source URL matches the target apex domain
+  // 1. Check if any grounded chunk matches the target apex domain
   const matchingSource = (groundedResult.sources || []).find(src => {
-    return getApexDomain(src.url) === targetApex;
+    return resolveSourceDomain(src) === targetApex;
   });
 
   if (matchingSource) {
@@ -85,19 +126,19 @@ export function analyzeCitation(groundedResult, siteUrl, keyword) {
     sourceUrl = matchingSource.url;
   }
 
-  // 2. Check if brand name is mentioned in text synthesis
-  const isMentionedInText = textLower.includes(targetApex) || (brandName.length >= 3 && textLower.includes(brandName));
+  // 2. Check if brand name or domain is mentioned with word boundaries in text synthesis
+  const hasDomainMention = containsWordBoundary(text, targetApex);
+  const hasBrandMention = brandName.length >= 3 && containsWordBoundary(text, brandName);
 
-  if (!matchingSource && isMentionedInText) {
+  if (!matchingSource && (hasDomainMention || hasBrandMention)) {
     citationType = 'brand_mention';
   }
 
   // 3. Extract relevant citation context snippet
   if (citationType !== 'not_cited') {
-    const sentences = (groundedResult.text || '').match(/[^.!?]+[.!?]+/g) || [groundedResult.text || ''];
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     const matchingSentences = sentences.filter(s => {
-      const sLower = s.toLowerCase();
-      return sLower.includes(targetApex) || sLower.includes(brandName);
+      return containsWordBoundary(s, targetApex) || (brandName.length >= 3 && containsWordBoundary(s, brandName));
     });
     citationContext = matchingSentences.slice(0, 2).join(' ').trim();
   }
@@ -111,8 +152,8 @@ export function analyzeCitation(groundedResult, siteUrl, keyword) {
   const seenCompetitors = new Set();
 
   for (const src of (groundedResult.sources || [])) {
-    const srcApex = getApexDomain(src.url);
-    if (srcApex !== targetApex && !utilityDomains.has(srcApex) && !seenCompetitors.has(srcApex)) {
+    const srcApex = resolveSourceDomain(src);
+    if (srcApex && srcApex !== targetApex && !utilityDomains.has(srcApex) && !seenCompetitors.has(srcApex)) {
       seenCompetitors.add(srcApex);
       competitors.push(srcApex);
     }
@@ -165,9 +206,12 @@ export async function probeCitations(siteUrl, keywords, options = {}) {
 
       const analysis = analyzeCitation(groundedResult, siteUrl, keyword);
 
+      const isUngrounded = engineName.includes('Ungrounded');
+
       results.push({
         keyword,
         engine: engineName,
+        isUngrounded,
         isCited: analysis.isCited,
         citationType: analysis.citationType,
         sourceUrl: analysis.sourceUrl,
@@ -190,6 +234,7 @@ export async function probeCitations(siteUrl, keywords, options = {}) {
       results.push({
         keyword,
         engine: 'Gemini',
+        isUngrounded: false,
         isCited: false,
         citationType: 'not_cited',
         sourceUrl: null,
@@ -208,11 +253,12 @@ export async function probeCitations(siteUrl, keywords, options = {}) {
     }
   }
 
+  const validProbed = results.filter(r => r.status !== 'failed');
   const totalProbed = results.length;
-  // Citation rate measures true grounded source citations
-  const citationRate = totalProbed > 0 ? Math.round((totalGroundedCitations / totalProbed) * 100) : 0;
-  // Visibility rate measures grounded citations + brand mentions
-  const visibilityRate = totalProbed > 0 ? Math.round(((totalGroundedCitations + (totalBrandMentions * 0.5)) / totalProbed) * 100) : 0;
+  // Citation rate measures true grounded source citations (failed probes excluded)
+  const citationRate = validProbed.length > 0 ? Math.round((totalGroundedCitations / validProbed.length) * 100) : null;
+  // Visibility rate measures grounded citations + brand mentions (failed probes excluded)
+  const visibilityRate = validProbed.length > 0 ? Math.round(((totalGroundedCitations + (totalBrandMentions * 0.5)) / validProbed.length) * 100) : null;
 
   return {
     results,
@@ -220,6 +266,7 @@ export async function probeCitations(siteUrl, keywords, options = {}) {
       citationRate,
       visibilityRate,
       totalProbed,
+      validProbedCount: validProbed.length,
       totalGroundedCitations,
       totalBrandMentions
     }

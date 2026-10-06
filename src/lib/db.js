@@ -261,7 +261,7 @@ export function addPages(auditId, pages) {
         audit_id: auditId,
         url: item.url,
         title: item.title || null,
-        status_code: item.status_code || null,
+        status_code: item.statusCode || item.status_code || null,
         type: item.type || null,
         is_spa: item.isSpa ? 1 : 0,
         spa_warning: item.spaWarning || null
@@ -312,7 +312,7 @@ export function addSchemaGaps(auditId, gaps) {
         id: uuidv4(),
         audit_id: auditId,
         type: item.schemaType || item.type || 'Unknown',
-        importance: item.status || item.importance || 'missing',
+        importance: item.importance || item.status || 'recommended',
         message: item.details || item.message || '',
         expected: item.expected || 0,
         actual: item.actual || 0,

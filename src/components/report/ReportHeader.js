@@ -86,7 +86,7 @@ export default function ReportHeader({ audit }) {
             {audit?.completedAt && (
               <span style={{ fontSize: '0.8125rem', color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <Calendar size={13} />
-                <LocalTime timestamp={audit.completedAt} />
+                <LocalTime date={audit.completedAt} />
               </span>
             )}
           </div>

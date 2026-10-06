@@ -62,4 +62,38 @@ describe('Citation Probe & Apex Domain Matching', () => {
     expect(analysis.citationType).toBe('not_cited');
     expect(analysis.isCited).toBe(false);
   });
+
+  it('correctly resolves domains from Google Search Grounding redirect URLs via title', () => {
+    const groundedResult = {
+      text: 'Stripe provides payment APIs.',
+      sources: [
+        {
+          url: 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQELLuAYMMg5-kXUZcnGdkV6rxvT8DJNc4kCnMXFa5BYP-B_tx2ArLxxp7L09P82RUBq28b7yL3XRhUcPD8XYKf5Kp6BhQK7yVfat_hROn1wrppvStJq7wCtHJqx0YNH1pN753pBIk5znPR72_boninZOKU0Ig==',
+          title: 'stripe.com'
+        },
+        {
+          url: 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH-8xPZLJxEAHD_ZTT0SGeWTGdSUPxGgTaszgqAmhe6xWLTkTvmkXpq3ENY3Oa1hWzEY_3ie50B6nGn3uYMIVRvWQg35qdRXA-SWorFASig2MmMm5Ctcxe3dw1EgSXih9WTva2V',
+          title: 'wise.com'
+        }
+      ]
+    };
+
+    const analysis = analyzeCitation(groundedResult, 'https://stripe.com', 'payment gateway');
+    expect(analysis.citationType).toBe('grounded_citation');
+    expect(analysis.isCited).toBe(true);
+    expect(analysis.competitors).toContain('wise.com');
+    expect(analysis.competitors).not.toContain('google.com');
+  });
+
+  it('respects word boundaries so partial substrings do not trigger false brand mentions', () => {
+    const groundedResult = {
+      text: 'The catalog contains various categories of goods.',
+      sources: []
+    };
+
+    // Target brand "cat" should NOT match "catalog" or "categories"
+    const analysis = analyzeCitation(groundedResult, 'https://cat.com', 'machinery');
+    expect(analysis.citationType).toBe('not_cited');
+    expect(analysis.isCited).toBe(false);
+  });
 });

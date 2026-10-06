@@ -48,20 +48,22 @@ export default function PagesSection({ pages = [] }) {
             >
               <div style={{ minWidth: 240, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.75rem',
-                      padding: '1px 6px',
-                      borderRadius: 'var(--radius-xs)',
-                      background: page.statusCode >= 400 ? 'var(--bad-bg)' : 'var(--bg-sunken)',
-                      color: page.statusCode >= 400 ? 'var(--bad)' : 'var(--text-2)',
-                      fontWeight: 600,
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    {page.statusCode || 200}
-                  </span>
+                  {page.statusCode ? (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.75rem',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-xs)',
+                        background: page.statusCode >= 400 ? 'var(--bad-bg)' : 'var(--bg-sunken)',
+                        color: page.statusCode >= 400 ? 'var(--bad)' : 'var(--text-2)',
+                        fontWeight: 600,
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      {page.statusCode}
+                    </span>
+                  ) : null}
 
                   <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>
                     {page.title || 'Untitled Page'}

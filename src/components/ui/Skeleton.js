@@ -13,6 +13,7 @@ export default function Skeleton({
   type = 'text',
   width,
   height,
+  radius,
   className = '',
   style = {},
   ...rest
@@ -31,7 +32,7 @@ export default function Skeleton({
       style={{
         width: width !== undefined ? width : undefined,
         height: height !== undefined ? height : undefined,
-        borderRadius: type === 'circle' ? '50%' : undefined,
+        borderRadius: radius !== undefined ? radius : (type === 'circle' ? '50%' : undefined),
         ...style,
       }}
       aria-hidden="true"

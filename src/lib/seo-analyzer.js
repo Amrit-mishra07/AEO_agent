@@ -110,6 +110,23 @@ function checkURLStructure(page) {
   return { passed: true, severity: 'info', category: 'url', issue: 'URL Structure OK', details: 'URL structure looks clean.', fixSuggestion: '' };
 }
 
+const CHECK_DEFINITIONS = [
+  { name: 'title', fn: checkTitle, maxWeight: 3 },
+  { name: 'metaDescription', fn: checkMetaDescription, maxWeight: 3 },
+  { name: 'h1', fn: checkH1, maxWeight: 3 },
+  { name: 'headingHierarchy', fn: checkHeadingHierarchy, maxWeight: 1.5 },
+  { name: 'images', fn: checkImages, maxWeight: 1.5 },
+  { name: 'links', fn: checkLinks, maxWeight: 1.5 },
+  { name: 'canonical', fn: checkCanonical, maxWeight: 1.5 },
+  { name: 'robots', fn: checkRobots, maxWeight: 1.5 },
+  { name: 'viewport', fn: checkViewport, maxWeight: 3 },
+  { name: 'openGraph', fn: checkOpenGraph, maxWeight: 1.5 },
+  { name: 'wordCount', fn: checkWordCount, maxWeight: 1.5 },
+  { name: 'urlStructure', fn: checkURLStructure, maxWeight: 1.5 }
+];
+
+const PAGE_MAX_WEIGHT = CHECK_DEFINITIONS.reduce((acc, c) => acc + c.maxWeight, 0); // 24
+
 /**
  * Analyzes SEO elements across multiple crawled pages.
  * @param {Array<object>} pages 
@@ -118,59 +135,40 @@ function checkURLStructure(page) {
 export function analyzeSEO(pages) {
   const overallIssues = [];
   const pageScores = [];
-  let totalWeightedDeductions = 0;
-  let totalMaxDeductions = 0;
+  let totalDeductions = 0;
 
   for (const page of pages) {
-    const checks = [
-      checkTitle(page),
-      checkMetaDescription(page),
-      checkH1(page),
-      checkHeadingHierarchy(page),
-      checkImages(page),
-      checkLinks(page),
-      checkCanonical(page),
-      checkRobots(page),
-      checkViewport(page),
-      checkOpenGraph(page),
-      checkWordCount(page),
-      checkURLStructure(page)
-    ];
-
-    let pageWeightedDeductions = 0;
-    let pageMaxDeductions = 0;
+    let pageDeductions = 0;
     const pageIssues = [];
 
-    for (const check of checks) {
-      let weight = 0;
-      if (check.severity === 'critical') weight = 3;
-      else if (check.severity === 'warning') weight = 1.5;
-      else if (check.severity === 'info') weight = 0.5;
-
-      pageMaxDeductions += weight;
-
+    for (const def of CHECK_DEFINITIONS) {
+      const check = def.fn(page);
       if (!check.passed) {
-        pageWeightedDeductions += weight;
+        let weight = check.severity === 'critical' ? 3 : 1.5;
+        weight = Math.min(weight, def.maxWeight);
+        pageDeductions += weight;
         pageIssues.push(check);
         overallIssues.push({ url: page.url, ...check });
       }
     }
 
-    const pageScore = 100 - (pageWeightedDeductions / pageMaxDeductions * 100);
+    const pageScore = Math.max(0, Math.round((1 - (pageDeductions / PAGE_MAX_WEIGHT)) * 100));
     pageScores.push({
       url: page.url,
-      score: Math.max(0, pageScore),
+      score: pageScore,
       issues: pageIssues
     });
 
-    totalWeightedDeductions += pageWeightedDeductions;
-    totalMaxDeductions += pageMaxDeductions;
+    totalDeductions += pageDeductions;
   }
 
-  const overallScore = totalMaxDeductions > 0 ? 100 - (totalWeightedDeductions / totalMaxDeductions * 100) : 100;
+  const totalMaxWeight = (pages || []).length * PAGE_MAX_WEIGHT;
+  const overallScore = totalMaxWeight > 0 
+    ? Math.max(0, Math.round((1 - (totalDeductions / totalMaxWeight)) * 100))
+    : 100;
 
   return {
-    overallScore: Math.max(0, overallScore),
+    overallScore,
     issues: overallIssues,
     pageScores
   };

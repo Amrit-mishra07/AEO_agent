@@ -150,6 +150,11 @@
   border: 1px solid var(--border);
 }
 
+.badge-sm {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+}
+
 .badge-success,
 .status-completed {
   background: var(--good-bg);

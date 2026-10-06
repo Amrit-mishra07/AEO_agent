@@ -27,6 +27,36 @@ import {
 } from '@/utils/scoring';
 import { withTimeout } from '@/utils/timeout';
 
+// In-memory sliding-window IP rate limiter
+const ipRequestHistory = new Map();
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_REQUESTS_PER_WINDOW = 5;
+
+// Concurrency limiter across runtime instance
+let activeAuditsCount = 0;
+const MAX_CONCURRENT_AUDITS = 2;
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const timestamps = (ipRequestHistory.get(ip) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  
+  if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+  
+  timestamps.push(now);
+  ipRequestHistory.set(ip, timestamps);
+  return true;
+}
+
+function getClientIp(request) {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.headers.get('x-real-ip') || '127.0.0.1';
+}
+
 // GET: list audits or get single audit
 export async function GET(request) {
   const searchParams = request.nextUrl.searchParams;
@@ -41,6 +71,33 @@ export async function GET(request) {
 
 // POST: create and run audit
 export async function POST(request) {
+  // 1. Optional API key authentication if configured
+  if (process.env.AEO_API_KEY) {
+    const authHeader = request.headers.get('authorization') || '';
+    const apiKeyHeader = request.headers.get('x-api-key') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : apiKeyHeader.trim();
+    if (token !== process.env.AEO_API_KEY) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid or missing API key' }, { status: 401 });
+    }
+  }
+
+  // 2. Sliding window IP rate limiter
+  const clientIp = getClientIp(request);
+  if (!checkRateLimit(clientIp)) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Maximum 5 audits per 10 minutes from this IP address.' },
+      { status: 429 }
+    );
+  }
+
+  // 3. Concurrency limiter (max 2 active simultaneous runs)
+  if (activeAuditsCount >= MAX_CONCURRENT_AUDITS) {
+    return NextResponse.json(
+      { error: 'Server capacity reached. A maximum of 2 audits can run simultaneously. Please retry shortly.' },
+      { status: 429 }
+    );
+  }
+
   const body = await request.json();
   const { url, keywords = [] } = body;
   
@@ -67,6 +124,7 @@ export async function POST(request) {
 }
 
 async function runAudit(auditId, url, keywords) {
+  activeAuditsCount++;
   try {
     updateAudit(auditId, { status: 'running', current_stage: 'crawl' });
     
@@ -86,20 +144,21 @@ async function runAudit(auditId, url, keywords) {
     addSchemaGaps(auditId, schemaResults.gaps);
     const schemaScore = formatScore(schemaResults.overallScore);
     
-    // Step 4: Content Scoring (LLM)
+    // Step 4: Content Scoring (LLM with partial saves & concurrency pool)
     updateAuditStage(auditId, 'content');
     let contentScore = 50;
     let contentResults = { overallScore: 50, pageScores: [] };
     try {
       contentResults = await withTimeout(
-        scoreContentExtractability(pages),
+        scoreContentExtractability(pages, {
+          onPageScored: async (scored) => {
+            addContentScores(auditId, [scored]);
+          }
+        }),
         60000,
         { overallScore: 50, pageScores: [] },
         'Content scoring'
       );
-      if (contentResults?.pageScores?.length > 0) {
-        addContentScores(auditId, contentResults.pageScores);
-      }
       contentScore = formatScore(contentResults.overallScore);
     } catch (e) {
       console.error('Content scoring failed:', e);
@@ -132,13 +191,15 @@ async function runAudit(auditId, url, keywords) {
         citationResults = await withTimeout(
           probeCitations(url, keywords),
           45000,
-          { results: [], summary: { citationRate: 0, visibilityRate: 0 } },
+          { results: [], summary: { citationRate: null, visibilityRate: null } },
           'Citation probing'
         );
         if (citationResults?.results?.length > 0) {
           addCitations(auditId, citationResults.results);
         }
-        citationScore = formatScore(citationResults?.summary?.visibilityRate ?? 0);
+        if (citationResults?.summary?.visibilityRate !== null && citationResults?.summary?.visibilityRate !== undefined) {
+          citationScore = formatScore(citationResults.summary.visibilityRate);
+        }
       }
     } catch (e) {
       console.error('Citation probing failed:', e);
@@ -177,7 +238,8 @@ async function runAudit(auditId, url, keywords) {
     
     // Calculate decoupled scores
     const technicalScore = calculateTechnicalReadinessScore(seoScore, schemaScore, contentScore);
-    const visibilityScore = hasKeywords ? (calculateVisibilityScore(citationResults?.results) ?? citationScore) : null;
+    const calculatedVis = calculateVisibilityScore(citationResults?.results);
+    const visibilityScore = hasKeywords ? (calculatedVis !== null ? calculatedVis : citationScore) : null;
     const overallScore = calculateOverallScore(seoScore, schemaScore, contentScore, visibilityScore);
     
     // Update audit with complete results
@@ -190,7 +252,7 @@ async function runAudit(auditId, url, keywords) {
       seo_score: seoScore,
       schema_score: schemaScore,
       content_score: contentScore,
-      citation_score: citationScore ?? 0,
+      citation_score: visibilityScore,
       llms_txt: llmsTxt,
       completed_at: new Date().toISOString(),
     });
@@ -199,5 +261,7 @@ async function runAudit(auditId, url, keywords) {
     console.error('Audit failed:', error);
     updateAudit(auditId, { status: 'failed', current_stage: 'failed' });
     throw error;
+  } finally {
+    activeAuditsCount = Math.max(0, activeAuditsCount - 1);
   }
 }

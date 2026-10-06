@@ -154,12 +154,25 @@ export function analyzeSchemas(pages) {
     if (detectedTypes.includes('FAQPage')) expectedSchemas.push('FAQPage');
     if (detectedTypes.includes('HowTo')) expectedSchemas.push('HowTo');
 
+    const schemaImportanceMap = {
+      Organization: 'required',
+      WebSite: 'required',
+      Article: 'required',
+      Product: 'required',
+      BreadcrumbList: 'recommended',
+      FAQPage: 'recommended',
+      HowTo: 'recommended',
+      LocalBusiness: 'recommended',
+    };
+
     for (const expected of expectedSchemas) {
       if (!existingSchemas.includes(expected)) {
         gapCount++;
+        const importance = schemaImportanceMap[expected] || 'recommended';
         allGaps.push({
           pageUrl: page.url,
           schemaType: expected,
+          importance,
           status: 'missing',
           details: `Page appears to be a ${expected} but is missing the corresponding schema.`,
           confidence: 'high'

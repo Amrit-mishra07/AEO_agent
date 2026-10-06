@@ -65,6 +65,14 @@
   --accent-warning-dim: var(--warn-bg);
   --accent-danger: var(--bad);
   --accent-danger-dim: var(--bad-bg);
+  --surface: var(--bg);
+  --border-subtle: var(--border);
+  --border-medium: var(--border);
+  --radius-lg: var(--radius-md);
+  --gradient-card: none;
+  --text-primary: var(--text);
+  --text-secondary: var(--text-2);
+  --text-muted: var(--text-3);
 }
 
 [data-theme="dark"] {

@@ -72,7 +72,7 @@ export default function MethodologyPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <Code2 size={16} style={{ color: 'var(--accent)' }} />
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
-                Schema.org Entity Coverage (25% weight)
+                Schema.org Entity Coverage (20% weight)
               </h3>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-2)', lineHeight: 1.55 }}>
@@ -85,7 +85,7 @@ export default function MethodologyPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <Layers size={16} style={{ color: 'var(--accent)' }} />
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
-                Content Extractability (25% weight)
+                Content Extractability (30% weight)
               </h3>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-2)', lineHeight: 1.55 }}>

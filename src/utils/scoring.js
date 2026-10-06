@@ -71,6 +71,20 @@ export function calculateSchemaScore(gaps = [], totalExpected = 0) {
   return formatScore(score);
 }
 
+export const AEO_WEIGHTS = {
+  composite: {
+    seo: 0.30,
+    schema: 0.20,
+    content: 0.30,
+    citation: 0.20
+  },
+  technical: {
+    seo: 0.35,
+    schema: 0.25,
+    content: 0.40
+  }
+};
+
 /**
  * Calculates deterministic Technical AI Readiness Index (SEO 35%, Schema 25%, Content 40%).
  * Independent of search queries.
@@ -80,9 +94,9 @@ export function calculateSchemaScore(gaps = [], totalExpected = 0) {
  * @returns {number}
  */
 export function calculateTechnicalReadinessScore(seoScore, schemaScore, contentScore) {
-  const seo = formatScore(seoScore) * 0.35;
-  const schema = formatScore(schemaScore) * 0.25;
-  const content = formatScore(contentScore) * 0.40;
+  const seo = formatScore(seoScore) * AEO_WEIGHTS.technical.seo;
+  const schema = formatScore(schemaScore) * AEO_WEIGHTS.technical.schema;
+  const content = formatScore(contentScore) * AEO_WEIGHTS.technical.content;
   return formatScore(seo + schema + content);
 }
 
@@ -133,17 +147,10 @@ export function calculateVisibilityScore(citations = []) {
  */
 export function calculateOverallScore(seoScore, schemaScore, contentScore, citationScore = null) {
   if (citationScore !== null && citationScore !== undefined && !isNaN(citationScore)) {
-    // Backward-compatible 4-pillar weighting
-    const WEIGHTS = {
-      seo: 0.3,
-      schema: 0.2,
-      content: 0.3,
-      citation: 0.2
-    };
-    const seo = formatScore(seoScore) * WEIGHTS.seo;
-    const schema = formatScore(schemaScore) * WEIGHTS.schema;
-    const content = formatScore(contentScore) * WEIGHTS.content;
-    const citation = formatScore(citationScore) * WEIGHTS.citation;
+    const seo = formatScore(seoScore) * AEO_WEIGHTS.composite.seo;
+    const schema = formatScore(schemaScore) * AEO_WEIGHTS.composite.schema;
+    const content = formatScore(contentScore) * AEO_WEIGHTS.composite.content;
+    const citation = formatScore(citationScore) * AEO_WEIGHTS.composite.citation;
     return formatScore(seo + schema + content + citation);
   }
 

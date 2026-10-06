@@ -13,11 +13,15 @@ const REQUEST_TIMEOUT_MS = 8000; // 8 seconds per request
  * @param {string} ip 
  * @returns {boolean}
  */
-export function isPrivateIP(ip) {
+export function isPrivateIP(rawIp) {
+  if (!rawIp) return true;
+  let ip = String(rawIp).replace(/^\[|\]$/g, '').trim().toLowerCase();
+
   if (!net.isIP(ip)) return true;
 
   if (net.isIPv4(ip)) {
     const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(isNaN)) return true;
     // 0.0.0.0/8
     if (parts[0] === 0) return true;
     // 127.0.0.0/8 (Loopback)
@@ -36,26 +40,44 @@ export function isPrivateIP(ip) {
     if (parts[0] === 192 && parts[1] === 0 && parts[2] === 2) return true;
     if (parts[0] === 198 && parts[1] === 51 && parts[2] === 100) return true;
     if (parts[0] === 203 && parts[1] === 0 && parts[2] === 113) return true;
-    // Broadcast
-    if (ip === '255.255.255.255') return true;
+    // Broadcast & Multicast / Reserved
+    if (parts[0] >= 224) return true;
     return false;
   }
 
   if (net.isIPv6(ip)) {
-    const normalized = ip.toLowerCase();
-    // Loopback
-    if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true;
-    // Unspecified
-    if (normalized === '::' || normalized === '0:0:0:0:0:0:0:0') return true;
-    // IPv4-mapped IPv6 (::ffff:127.0.0.1 etc.)
-    if (normalized.startsWith('::ffff:')) {
-      const v4Part = ip.slice(7);
-      if (net.isIPv4(v4Part)) return isPrivateIP(v4Part);
+    // Loopback ::1
+    if (ip === '::1' || ip.replace(/^0+:|^:0+/, '').endsWith('::1')) return true;
+    // Unspecified ::
+    if (ip === '::' || /^0*(:0*)+$/.test(ip)) return true;
+
+    // IPv4-mapped IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1, 0:0:0:0:0:ffff:...)
+    if (ip.includes('ffff:')) {
+      const parts = ip.split('ffff:');
+      const suffix = parts[parts.length - 1];
+      if (net.isIPv4(suffix)) {
+        return isPrivateIP(suffix);
+      }
+      if (suffix.includes(':')) {
+        const hexParts = suffix.split(':');
+        if (hexParts.length === 2) {
+          const hi = parseInt(hexParts[0], 16);
+          const lo = parseInt(hexParts[1], 16);
+          if (!isNaN(hi) && !isNaN(lo)) {
+            const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+            return isPrivateIP(v4);
+          }
+        }
+      }
     }
+
     // Unique Local Address (fc00::/7 -> fc00... or fd00...)
-    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+    if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
     // Link-local (fe80::/10)
-    if (normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) return true;
+    if (/^fe[89ab]/i.test(ip)) return true;
+    // Documentation prefix 2001:db8::
+    if (ip.startsWith('2001:db8') || ip.startsWith('2001:0db8')) return true;
+
     return false;
   }
 
@@ -149,31 +171,78 @@ export function extractCleanText(html) {
 }
 
 /**
+ * Performs a network fetch enforcing anti-SSRF validation at every redirect hop.
+ * @param {string} initialUrl
+ * @param {object} options
+ * @returns {Promise<Response>}
+ */
+export async function safeFetch(initialUrl, options = {}) {
+  const maxHops = options.maxRedirects || 5;
+  let currentUrl = initialUrl;
+  let hops = 0;
+
+  while (hops <= maxHops) {
+    const safetyCheck = await validateSafeUrl(currentUrl);
+    if (!safetyCheck.valid) {
+      throw new Error(`SSRF Blocked: ${safetyCheck.reason}`);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(currentUrl, {
+        ...options,
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': DEFAULT_USER_AGENT,
+          ...(options.headers || {}),
+        },
+      });
+      clearTimeout(timeoutId);
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) {
+          return response;
+        }
+        hops++;
+        if (hops > maxHops) {
+          throw new Error(`Too many redirects (exceeded limit of ${maxHops})`);
+        }
+        currentUrl = new URL(location, currentUrl).href;
+        continue;
+      }
+
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  }
+
+  throw new Error(`Exceeded redirect limit`);
+}
+
+/**
  * Crawls a single page safely and extracts its SEO metadata and content.
  * @param {string} url 
  * @returns {Promise<object|null>}
  */
 export async function crawlPage(url) {
   try {
-    // 1. SSRF Guard
-    const safetyCheck = await validateSafeUrl(url);
-    if (!safetyCheck.valid) {
-      console.warn(`[SSRF Blocked] URL: ${url} — Reason: ${safetyCheck.reason}`);
+    let response;
+    try {
+      response = await safeFetch(url, {
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+        }
+      });
+    } catch (fetchErr) {
+      console.warn(`[Crawler Skipped] ${url}: ${fetchErr.message}`);
       return null;
     }
-
-    // 2. Fetch with timeout guard
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': DEFAULT_USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-      }
-    });
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -260,6 +329,7 @@ export async function crawlPage(url) {
 
     return {
       url,
+      statusCode: response.status,
       title,
       metaDescription,
       h1s,
@@ -304,19 +374,10 @@ export async function crawlSite(startUrl, options = { maxPages: 10, maxDepth: 1 
   let robots = null;
   try {
     const robotsUrl = `${startUrlObj.origin}/robots.txt`;
-    const robotsSafety = await validateSafeUrl(robotsUrl);
-    if (robotsSafety.valid) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const robotsRes = await fetch(robotsUrl, { 
-        signal: controller.signal,
-        headers: { 'User-Agent': DEFAULT_USER_AGENT } 
-      });
-      clearTimeout(timeoutId);
-      if (robotsRes.ok) {
-        const robotsTxt = await robotsRes.text();
-        robots = robotsParser(robotsUrl, robotsTxt);
-      }
+    const robotsRes = await safeFetch(robotsUrl, { timeoutMs: 4000 });
+    if (robotsRes.ok) {
+      const robotsTxt = await robotsRes.text();
+      robots = robotsParser(robotsUrl, robotsTxt);
     }
   } catch {
     console.warn('Could not fetch robots.txt for domain:', startUrlObj.origin);

@@ -15,9 +15,9 @@ export default function ReportSkeleton() {
       {/* Header banner skeleton */}
       <div 
         style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-lg)',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
           padding: '2rem',
           marginBottom: '2rem',
           display: 'flex',
@@ -55,9 +55,9 @@ export default function ReportSkeleton() {
         {/* Main Gauge Card */}
         <div 
           style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-lg)',
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
             padding: '2rem 1.5rem',
             display: 'flex',
             flexDirection: 'column',
@@ -77,9 +77,9 @@ export default function ReportSkeleton() {
             <div 
               key={i}
               style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-lg)',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
                 padding: '1.5rem 1rem',
                 display: 'flex',
                 flexDirection: 'column',
@@ -99,9 +99,9 @@ export default function ReportSkeleton() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         <div 
           style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-lg)',
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
             padding: '1.75rem',
           }}
         >

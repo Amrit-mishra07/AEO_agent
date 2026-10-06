@@ -100,18 +100,31 @@ export async function generateGroundedSearch(prompt, options = {}) {
 /**
  * Generate JSON output using Gemini.
  * @param {string} prompt 
- * @param {object|null} schema 
+ * @param {object|null} schemaOrOptions 
+ * @param {object} [maybeOptions]
  * @returns {Promise<object>}
  */
-export async function generateJSON(prompt, schema = null) {
-  const options = { responseFormat: 'application/json' };
+export async function generateJSON(prompt, schemaOrOptions = null, maybeOptions = {}) {
+  let schema = null;
+  let options = {};
+
+  if (schemaOrOptions && typeof schemaOrOptions === 'object') {
+    if (schemaOrOptions.type || schemaOrOptions.properties) {
+      schema = schemaOrOptions;
+      options = maybeOptions || {};
+    } else {
+      options = schemaOrOptions;
+    }
+  }
+
+  const mergedOptions = { responseFormat: 'application/json', ...options };
   if (schema) {
-    options.responseSchema = schema;
+    mergedOptions.responseSchema = schema;
   } else {
     prompt += '\n\nPlease respond in valid JSON format.';
   }
 
-  const responseText = await generateContent(prompt, options);
+  const responseText = await generateContent(prompt, mergedOptions);
   try {
     // Strip markdown formatting if present
     const cleanedText = responseText.replace(/^```json\s*/, '').replace(/\s*```$/, '');

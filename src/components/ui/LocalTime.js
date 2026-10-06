@@ -13,16 +13,17 @@ const emptySubscribe = () => () => {};
  * @param {'datetime' | 'date' | 'time'} [props.format='datetime']
  * @param {string} [props.className='']
  */
-export default function LocalTime({ date, format = 'datetime', className = '' }) {
+export default function LocalTime({ date, timestamp, format = 'datetime', className = '' }) {
   const isClient = useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false
   );
 
-  if (!date) return <span className={className}>N/A</span>;
+  const rawDate = date || timestamp;
+  if (!rawDate) return <span className={className}>N/A</span>;
 
-  const d = new Date(date);
+  const d = new Date(rawDate);
   if (isNaN(d.getTime())) return <span className={className}>Invalid date</span>;
 
   const iso = d.toISOString();

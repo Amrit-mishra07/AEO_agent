@@ -32,11 +32,11 @@ export default function MethodologyNote() {
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-3)' }}>12 crawler hygiene rules: title, canonicals, viewport, H1 count, word count, and image alt text.</p>
           </div>
           <div>
-            <strong style={{ color: 'var(--text)' }}>Schema Markup (25%)</strong>
+            <strong style={{ color: 'var(--text)' }}>Schema Markup (20%)</strong>
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-3)' }}>Knowledge graph validation for Organization, Article, and FAQPage structured entities.</p>
           </div>
           <div>
-            <strong style={{ color: 'var(--text)' }}>Content Extractability (25%)</strong>
+            <strong style={{ color: 'var(--text)' }}>Content Extractability (30%)</strong>
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-3)' }}>6-dimension LLM rubric scoring answerability, definitions, facts, and structure.</p>
           </div>
           <div>

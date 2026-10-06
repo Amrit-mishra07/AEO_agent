@@ -62,10 +62,11 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * @param {Array<{url: string, textContent: string}>} pages
  * @returns {Promise<{ overallScore: number, pageScores: Array }>}
  */
-export async function scoreContentExtractability(pages) {
+export async function scoreContentExtractability(pages, options = {}) {
   const pageScores = [];
-  const BATCH_SIZE = 3;
-  const BATCH_DELAY_MS = 2000; // 2 seconds between batches to avoid rate limits
+  const BATCH_SIZE = 2; // Strict concurrency cap of 2 simultaneous LLM calls
+  const BATCH_DELAY_MS = 1500;
+  const onPageScored = options.onPageScored || null;
 
   for (let i = 0; i < pages.length; i += BATCH_SIZE) {
     const batch = pages.slice(i, i + BATCH_SIZE);
@@ -74,7 +75,7 @@ export async function scoreContentExtractability(pages) {
       try {
         const prompt = buildScoringPrompt(page.url, page.textContent || '');
         const result = await withTimeout(
-          generateJSON(prompt),
+          generateJSON(prompt, { temperature: 0 }),
           25000,
           null,
           `Content scoring for ${page.url}`
@@ -82,16 +83,42 @@ export async function scoreContentExtractability(pages) {
         if (!result) {
           throw new Error('Content scoring timed out');
         }
-        return {
+
+        const rawScores = result.scores || {};
+        const dimensions = [
+          rawScores.firstSentenceAnswerability,
+          rawScores.definitionClarity,
+          rawScores.factSpecificity,
+          rawScores.scannableStructure,
+          rawScores.faqPresence,
+          rawScores.citationReadiness,
+        ].map(s => (typeof s === 'number' && !isNaN(s) ? Math.max(0, Math.min(100, Math.round(s))) : null));
+
+        const validDims = dimensions.filter(s => s !== null);
+        const computedOverall = validDims.length > 0
+          ? Math.round(validDims.reduce((a, b) => a + b, 0) / validDims.length)
+          : (typeof result.overallPageScore === 'number' ? Math.round(result.overallPageScore) : 50);
+
+        const scoredItem = {
           url: page.url,
-          scores: result.scores || {},
-          overallPageScore: result.overallPageScore || 50,
+          scores: rawScores,
+          overallPageScore: computedOverall,
           feedback: result.feedback || {},
           suggestedImprovements: result.suggestedImprovements || []
         };
+
+        if (typeof onPageScored === 'function') {
+          try {
+            await onPageScored(scoredItem);
+          } catch (cbErr) {
+            console.warn(`[Content Scorer] onPageScored callback error:`, cbErr.message);
+          }
+        }
+
+        return scoredItem;
       } catch (error) {
         console.error(`Failed to score page ${page.url}:`, error);
-        return {
+        const failedItem = {
           url: page.url,
           error: error.message,
           overallPageScore: 0,
@@ -99,6 +126,16 @@ export async function scoreContentExtractability(pages) {
           feedback: {},
           suggestedImprovements: []
         };
+
+        if (typeof onPageScored === 'function') {
+          try {
+            await onPageScored(failedItem);
+          } catch (cbErr) {
+            console.warn(`[Content Scorer] onPageScored callback error:`, cbErr.message);
+          }
+        }
+
+        return failedItem;
       }
     });
 

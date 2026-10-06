@@ -82,7 +82,7 @@ If some required fields are missing, use plausible placeholders or null.
 Respond ONLY with a JSON object representing the JSON-LD script content. No markdown formatting.`;
 
   try {
-    const jsonLd = await generateJSON(prompt);
+    const jsonLd = await generateJSON(prompt, { temperature: 0 });
     return {
       schemaType,
       jsonLd: JSON.stringify(jsonLd, null, 2),
@@ -144,7 +144,7 @@ Provide your response in JSON format exactly matching this schema:
 }`;
 
     try {
-      const response = await generateJSON(prompt);
+      const response = await generateJSON(prompt, { temperature: 0 });
       if (response && response.fixes) {
         results.push({
           pageUrl,
@@ -189,7 +189,7 @@ Provide your response in JSON format matching this schema:
 }`;
 
   try {
-    const response = await generateJSON(prompt);
+    const response = await generateJSON(prompt, { temperature: 0 });
     return {
       pageUrl: page.url,
       originalExcerpt: excerpt,

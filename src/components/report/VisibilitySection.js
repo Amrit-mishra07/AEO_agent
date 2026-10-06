@@ -120,7 +120,7 @@ export default function VisibilitySection({ citations = [], domain = '' }) {
                     }}
                   >
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: 'var(--text)' }}>
-                      &ldquo;{probe.keyword}&rdquo;
+                      &ldquo;{probe.query || probe.keyword || 'Search query'}&rdquo;
                       {probe.sourceUrl && (
                         <div style={{ marginTop: '0.2rem' }}>
                           <a
@@ -145,7 +145,12 @@ export default function VisibilitySection({ citations = [], domain = '' }) {
                     </td>
 
                     <td style={{ padding: '0.85rem 0.75rem', color: 'var(--text-2)', fontSize: '0.75rem' }}>
-                      Gemini 2.5 (Search Grounded)
+                      <div>{probe.engine || 'Gemini (Google Search Grounded)'}</div>
+                      {probe.isUngrounded && (
+                        <div style={{ marginTop: '0.25rem' }}>
+                          <Badge variant="warn" size="sm">Fallback - not grounded</Badge>
+                        </div>
+                      )}
                     </td>
 
                     <td style={{ padding: '0.85rem 0.75rem', textAlign: 'center' }}>

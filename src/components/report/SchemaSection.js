@@ -107,7 +107,7 @@ export default function SchemaSection({ gaps = [] }) {
                             gap: '0.4rem',
                           }}
                         >
-                          <AlertTriangle size={13} flexShrink={0} />
+                          <AlertTriangle size={13} style={{ flexShrink: 0 }} />
                           <span>Contains placeholder values. Replace null/example fields with your real organization data.</span>
                         </div>
                       )}

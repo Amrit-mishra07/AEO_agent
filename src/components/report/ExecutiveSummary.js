@@ -140,13 +140,13 @@ export default function ExecutiveSummary({ audit }) {
               />
 
               <Meter
-                value={audit?.contentScore ?? audit?.scores?.content ?? 0}
+                value={audit?.contentScore ?? audit?.scores?.content ?? null}
                 label="Content Extractability"
                 sublabel="6 LLM dimensions"
               />
 
               <Meter
-                value={audit?.citationScore ?? audit?.scores?.visibility ?? 0}
+                value={audit?.citationScore ?? audit?.scores?.visibility ?? null}
                 label="AI Citation Visibility"
                 sublabel={audit?.citations?.length ? `${audit.citations.length} probes` : 'Unprobed'}
                 unit="%"

@@ -11,6 +11,7 @@ import React from 'react';
  */
 export default function Badge({
   variant = 'neutral',
+  size = 'md',
   dot = false,
   icon,
   className = '',
@@ -25,11 +26,15 @@ export default function Badge({
     bad: 'badge-danger',
     danger: 'badge-danger',
     info: 'badge-info',
+    brand: 'badge-info',
+    subtle: '',
     neutral: '',
   }[variant] || '';
 
+  const sizeClass = size === 'sm' ? 'badge-sm' : '';
+
   return (
-    <span className={`badge ${normalizedVariant} ${className}`.trim()} {...rest}>
+    <span className={`badge ${normalizedVariant} ${sizeClass} ${className}`.trim()} {...rest}>
       {dot && <span className="live-status-dot" aria-hidden="true" />}
       {icon && <span aria-hidden="true">{icon}</span>}
       <span>{children}</span>

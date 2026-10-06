@@ -9,7 +9,7 @@
   *Diagnose, benchmark, and optimize web properties for AI answer engines using Gemini and live Google Search Grounding.*
 
   <p align="center">
-    <a href="#test-suite"><img src="https://img.shields.io/badge/Vitest-57%20Passed%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" /></a>
+    <a href="#test-suite"><img src="https://img.shields.io/badge/Vitest-65%20Passed%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" /></a>
     <a href="#test-suite"><img src="https://img.shields.io/badge/Lighthouse-96%2B%20Across%20Metrics-10b981?style=for-the-badge&logo=lighthouse&logoColor=white" alt="Lighthouse" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/Next.js-16.3.6%20App%20Router-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
     <a href="#technology-stack"><img src="https://img.shields.io/badge/React-19.2.8-61dafb?style=for-the-badge&logo=react&logoColor=black" alt="React 19" /></a>
@@ -265,7 +265,8 @@ $$\text{Visibility Score} = \frac{1}{N} \sum_{i=1}^{N} \Big( \text{BaseScore}(c_
 
 ## 🔒 Resilient Engineering & Security
 
-* **SSRF Shield:** Every URL is parsed, validated, and resolved via DNS before fetch requests. Rejects `localhost`, `0.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.169.254`, and IPv6 loopbacks (`::1`).
+* **SSRF Shield & Redirect Protection:** Every URL is parsed, validated, and resolved via DNS before fetch requests. Rejects `localhost`, `0.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.169.254`, IPv4-mapped IPv6, and IPv6 loopbacks (`::1`). Manual redirect loop (`redirect: 'manual'`, up to 5 hops) re-verifies anti-SSRF guards on every hop to eliminate redirect-hopping vulnerabilities.
+* **Rate Limiting & Concurrency Guard:** In-memory sliding-window IP rate limiter (5 audits per 10 minutes) and instance concurrency cap (max 2 simultaneous runs) guard server compute.
 * **Resource & Memory Guards:** Strict 8-second request timeout per page, 5MB response body limit, and strict `text/html` / `application/xhtml+xml` content-type validation.
 * **Crash Recovery Sweeper:** On server startup, `cleanupStaleAudits()` automatically transitions any audit stuck in `running` for > 15 minutes to `failed`, preventing zombie state in the dashboard.
 * **Live Pipeline Synchronization:** The database records `current_stage` (`crawl` ➔ `seo` ➔ `schema` ➔ `content` ➔ `citation` ➔ `fixes` ➔ `completed`) and streams real-time status to the UI polling listener.
