@@ -1,3 +1,5 @@
+import { normalizeCompetitors } from './audit-view-model';
+
 /**
  * Computes competitor share of voice from empirical Gemini citation probe results.
  */
@@ -32,7 +34,7 @@ export function computeShareOfVoice(citations = [], targetDomain = 'Your Domain'
     else if (isMentioned) target.mentionCount += 1;
 
     // 2. Tally competitors
-    const competitors = Array.isArray(probe.competitors) ? probe.competitors : [];
+    const competitors = normalizeCompetitors(probe.competitors);
     competitors.forEach((rawComp) => {
       const compName = String(rawComp).trim();
       if (!compName || compName.toLowerCase() === targetDomain.toLowerCase()) return;

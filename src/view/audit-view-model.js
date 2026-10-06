@@ -12,18 +12,30 @@ export function safeJsonParse(val, fallback = null) {
   }
 }
 
+const IGNORED_COMPETITORS = new Set(['n/a', 'none', 'none detected', 'none found', 'unknown']);
+
+function isCompetitorValid(name) {
+  if (!name) return false;
+  const str = String(name).trim();
+  return str.length > 0 && !IGNORED_COMPETITORS.has(str.toLowerCase());
+}
+
 export function normalizeCompetitors(raw) {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw.filter(Boolean);
+  if (Array.isArray(raw)) {
+    return raw.map((s) => String(s).trim()).filter(isCompetitorValid);
+  }
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
-    if (!trimmed || trimmed === 'N/A' || trimmed === 'None detected') return [];
+    if (!isCompetitorValid(trimmed)) return [];
     if (trimmed.startsWith('[')) {
       const parsed = safeJsonParse(trimmed, []);
-      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+      if (Array.isArray(parsed)) {
+        return parsed.map((s) => String(s).trim()).filter(isCompetitorValid);
+      }
     }
     if (trimmed.includes(',')) {
-      return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+      return trimmed.split(',').map((s) => s.trim()).filter(isCompetitorValid);
     }
     return [trimmed];
   }
