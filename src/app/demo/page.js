@@ -134,6 +134,7 @@ export default function DemoPage() {
       <VisibilitySection 
         citations={viewModel.citations} 
         domain={viewModel.domain} 
+        keywords={viewModel.keywords}
       />
 
       {/* Generated llms.txt Studio */}

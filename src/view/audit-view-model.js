@@ -242,6 +242,7 @@ export function toAuditViewModel(rawAudit, history = []) {
     domain,
     status: rawAudit.status || 'pending',
     currentStage: rawAudit.current_stage || 'pending',
+    errorMessage: rawAudit.error_message || null,
     createdAt: rawAudit.created_at,
     completedAt: rawAudit.completed_at,
     llmsTxt: rawAudit.llms_txt || '',

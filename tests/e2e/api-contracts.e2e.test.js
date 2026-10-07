@@ -99,6 +99,24 @@ describe('Layer 4: API & Security Controls (E2E Contracts)', () => {
       expect(data.url).toBe('https://example.com');
       expect(data.status).toBe('pending');
     });
+
+    it('enforces optional API key authentication on GET when AEO_API_KEY is configured', async () => {
+      process.env.AEO_API_KEY = 'secret-aeo-token';
+
+      // 1. Without auth header -> 401
+      const unauthReq = new NextRequest('http://localhost:3000/api/audit');
+      const unauthRes = await getAuditRoute(unauthReq);
+      expect(unauthRes.status).toBe(401);
+
+      // 2. With valid auth header -> 200
+      const authReq = new NextRequest('http://localhost:3000/api/audit', {
+        headers: { authorization: 'Bearer secret-aeo-token' }
+      });
+      const authRes = await getAuditRoute(authReq);
+      expect(authRes.status).toBe(200);
+
+      delete process.env.AEO_API_KEY;
+    });
   });
 
   describe('POST /api/audit — Auth, Validation & SSRF', () => {

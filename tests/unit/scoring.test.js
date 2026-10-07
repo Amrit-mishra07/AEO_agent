@@ -39,6 +39,17 @@ describe('scoring math and utilities', () => {
     expect(calculateOverallScore(100, 80, 90)).toBe(91);
   });
 
+  it('handles null content score honestly without fabricating 50', () => {
+    // When content score is null, SEO (0.35) and Schema (0.25) re-weight over 0.60
+    // (100 * 0.35 + 80 * 0.25) / 0.60 = (35 + 20) / 0.60 = 55 / 0.60 = 91.666 -> 92
+    expect(calculateTechnicalReadinessScore(100, 80, null)).toBe(92);
+    expect(calculateOverallScore(100, 80, null, null)).toBe(92);
+
+    // With citation score 80: SEO (0.30) + Schema (0.20) + Citation (0.20) = 0.70
+    // (100 * 0.30 + 80 * 0.20 + 80 * 0.20) / 0.70 = (30 + 16 + 16) / 0.70 = 62 / 0.70 = 88.57 -> 89
+    expect(calculateOverallScore(100, 80, null, 80)).toBe(89);
+  });
+
   it('calculates Empirical Visibility Score with grounded types and sentiment', () => {
     expect(calculateVisibilityScore([])).toBe(null);
     expect(calculateVisibilityScore(null)).toBe(null);
@@ -55,6 +66,19 @@ describe('scoring math and utilities', () => {
       { citation_type: 'grounded_citation', sentiment: 'criticized' }    // 100 * 0.3 = 30
     ];
     expect(calculateVisibilityScore(criticized)).toBe(30);
+  });
+
+  it('heavily discounts ungrounded fallback mentions in visibility score', () => {
+    const groundedMention = [
+      { citation_type: 'brand_mention', sentiment: 'neutral', isUngrounded: false }
+    ];
+    expect(calculateVisibilityScore(groundedMention)).toBe(50);
+
+    const ungroundedMention = [
+      { citation_type: 'brand_mention', sentiment: 'neutral', isUngrounded: true }
+    ];
+    // 15 vs 50
+    expect(calculateVisibilityScore(ungroundedMention)).toBe(15);
   });
 
   it('determines correct letter grades', () => {

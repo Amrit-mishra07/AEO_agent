@@ -195,4 +195,17 @@ describe('SQLite Database Operations (In-Memory)', () => {
     // Check page rewrite
     expect(fullAudit.pages[0].content_rewrite).toContain('# Restructured Post');
   });
+
+  it('persists and retrieves error_message on audit failure', () => {
+    const audit = createAudit('https://error-example.com', ['test']);
+    updateAudit(audit.id, {
+      status: 'failed',
+      current_stage: 'failed',
+      error_message: 'Crawl timed out: host unreachable'
+    });
+
+    const retrieved = getAudit(audit.id);
+    expect(retrieved.status).toBe('failed');
+    expect(retrieved.error_message).toBe('Crawl timed out: host unreachable');
+  });
 });

@@ -87,22 +87,35 @@ export const AEO_WEIGHTS = {
 
 /**
  * Calculates deterministic Technical AI Readiness Index (SEO 35%, Schema 25%, Content 40%).
- * Independent of search queries.
+ * Independent of search queries. If contentScore is null (evaluation skipped/failed),
+ * proportionally re-weights SEO (35%) and Schema (25%).
  * @param {number} seoScore 
  * @param {number} schemaScore 
- * @param {number} contentScore 
+ * @param {number|null} [contentScore=null] 
  * @returns {number}
  */
-export function calculateTechnicalReadinessScore(seoScore, schemaScore, contentScore) {
-  const seo = formatScore(seoScore) * AEO_WEIGHTS.technical.seo;
-  const schema = formatScore(schemaScore) * AEO_WEIGHTS.technical.schema;
-  const content = formatScore(contentScore) * AEO_WEIGHTS.technical.content;
-  return formatScore(seo + schema + content);
+export function calculateTechnicalReadinessScore(seoScore, schemaScore, contentScore = null) {
+  const seo = formatScore(seoScore);
+  const schema = formatScore(schemaScore);
+  const hasContent = contentScore !== null && contentScore !== undefined && !isNaN(contentScore);
+
+  if (hasContent) {
+    const content = formatScore(contentScore);
+    return formatScore(
+      seo * AEO_WEIGHTS.technical.seo +
+      schema * AEO_WEIGHTS.technical.schema +
+      content * AEO_WEIGHTS.technical.content
+    );
+  }
+
+  // Re-weight proportionally across SEO and Schema when content scoring is omitted/failed
+  const remainingWeight = AEO_WEIGHTS.technical.seo + AEO_WEIGHTS.technical.schema;
+  return formatScore((seo * AEO_WEIGHTS.technical.seo + schema * AEO_WEIGHTS.technical.schema) / remainingWeight);
 }
 
 /**
  * Calculates Empirical AI Visibility Score based on Grounded Citations, Mentions, and Sentiment.
- * Returns null if no queries were tested.
+ * Returns null if no queries were tested. Ungrounded fallback mentions are heavily discounted.
  * @param {Array<object>} citations 
  * @returns {number|null}
  */
@@ -113,11 +126,13 @@ export function calculateVisibilityScore(citations = []) {
   for (const c of citations) {
     let itemScore = 0;
     const type = c.citation_type || c.citationType || (c.isCited ? 'grounded_citation' : 'not_cited');
+    const isUngrounded = Boolean(c.isUngrounded || c.is_ungrounded || (c.engine && String(c.engine).includes('Ungrounded')));
     
     if (type === 'grounded_citation') {
       itemScore = 100;
     } else if (type === 'brand_mention') {
-      itemScore = 50;
+      // Heavily discount ungrounded LLM memory mentions vs verified live Google search retrieval
+      itemScore = isUngrounded ? 15 : 50;
     } else {
       itemScore = 0;
     }
@@ -137,21 +152,39 @@ export function calculateVisibilityScore(citations = []) {
 
 /**
  * Calculates overall composite score.
- * If citationScore is null/undefined (no keywords), gracefully defaults to Technical Readiness Score
- * rather than docking 20 points.
+ * If citationScore is null/undefined (no keywords), gracefully defaults to Technical Readiness Score.
+ * If contentScore is null (failed/skipped), re-normalizes available vectors honestly.
  * @param {number} seoScore 
  * @param {number} schemaScore 
- * @param {number} contentScore 
- * @param {number|null} citationScore 
+ * @param {number|null} [contentScore=null] 
+ * @param {number|null} [citationScore=null] 
  * @returns {number}
  */
-export function calculateOverallScore(seoScore, schemaScore, contentScore, citationScore = null) {
-  if (citationScore !== null && citationScore !== undefined && !isNaN(citationScore)) {
-    const seo = formatScore(seoScore) * AEO_WEIGHTS.composite.seo;
-    const schema = formatScore(schemaScore) * AEO_WEIGHTS.composite.schema;
-    const content = formatScore(contentScore) * AEO_WEIGHTS.composite.content;
-    const citation = formatScore(citationScore) * AEO_WEIGHTS.composite.citation;
-    return formatScore(seo + schema + content + citation);
+export function calculateOverallScore(seoScore, schemaScore, contentScore = null, citationScore = null) {
+  const hasCitation = citationScore !== null && citationScore !== undefined && !isNaN(citationScore);
+  const hasContent = contentScore !== null && contentScore !== undefined && !isNaN(contentScore);
+  const seo = formatScore(seoScore);
+  const schema = formatScore(schemaScore);
+
+  if (hasCitation && hasContent) {
+    const content = formatScore(contentScore);
+    const citation = formatScore(citationScore);
+    return formatScore(
+      seo * AEO_WEIGHTS.composite.seo +
+      schema * AEO_WEIGHTS.composite.schema +
+      content * AEO_WEIGHTS.composite.content +
+      citation * AEO_WEIGHTS.composite.citation
+    );
+  }
+
+  if (hasCitation && !hasContent) {
+    const citation = formatScore(citationScore);
+    const totalWeight = AEO_WEIGHTS.composite.seo + AEO_WEIGHTS.composite.schema + AEO_WEIGHTS.composite.citation;
+    return formatScore(
+      (seo * AEO_WEIGHTS.composite.seo +
+       schema * AEO_WEIGHTS.composite.schema +
+       citation * AEO_WEIGHTS.composite.citation) / totalWeight
+    );
   }
 
   // Pure technical readiness when citation was unprobed

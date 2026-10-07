@@ -10,7 +10,8 @@ import {
   addSchemaGaps, 
   addCitations,
   addContentScores, 
-  addFixes
+  addFixes,
+  countActiveAudits
 } from '@/lib/db';
 import { crawlSite, validateSafeUrl } from '@/lib/crawler';
 import { analyzeSEO } from '@/lib/seo-analyzer';
@@ -36,8 +37,37 @@ const MAX_REQUESTS_PER_WINDOW = 5;
 let activeAuditsCount = 0;
 const MAX_CONCURRENT_AUDITS = 2;
 
+function isAuthorized(request) {
+  if (process.env.AEO_API_KEY) {
+    const authHeader = request.headers.get('authorization') || '';
+    const apiKeyHeader = request.headers.get('x-api-key') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : apiKeyHeader.trim();
+    return token === process.env.AEO_API_KEY;
+  }
+  return true;
+}
+
+function getActiveAuditsCount() {
+  try {
+    const dbCount = countActiveAudits();
+    return Math.max(dbCount, activeAuditsCount);
+  } catch {
+    return activeAuditsCount;
+  }
+}
+
 function checkRateLimit(ip) {
   const now = Date.now();
+
+  // Prune expired IPs if history grows large
+  if (ipRequestHistory.size > 500) {
+    for (const [key, timestamps] of ipRequestHistory.entries()) {
+      if (timestamps.every(t => now - t >= RATE_LIMIT_WINDOW_MS)) {
+        ipRequestHistory.delete(key);
+      }
+    }
+  }
+
   const timestamps = (ipRequestHistory.get(ip) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
   
   if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
@@ -59,6 +89,10 @@ function getClientIp(request) {
 
 // GET: list audits or get single audit
 export async function GET(request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized: Invalid or missing API key' }, { status: 401 });
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const id = searchParams.get('id');
   if (id) {
@@ -72,13 +106,8 @@ export async function GET(request) {
 // POST: create and run audit
 export async function POST(request) {
   // 1. Optional API key authentication if configured
-  if (process.env.AEO_API_KEY) {
-    const authHeader = request.headers.get('authorization') || '';
-    const apiKeyHeader = request.headers.get('x-api-key') || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : apiKeyHeader.trim();
-    if (token !== process.env.AEO_API_KEY) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or missing API key' }, { status: 401 });
-    }
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized: Invalid or missing API key' }, { status: 401 });
   }
 
   // 2. Sliding window IP rate limiter
@@ -91,7 +120,7 @@ export async function POST(request) {
   }
 
   // 3. Concurrency limiter (max 2 active simultaneous runs)
-  if (activeAuditsCount >= MAX_CONCURRENT_AUDITS) {
+  if (getActiveAuditsCount() >= MAX_CONCURRENT_AUDITS) {
     return NextResponse.json(
       { error: 'Server capacity reached. A maximum of 2 audits can run simultaneously. Please retry shortly.' },
       { status: 429 }
@@ -117,7 +146,11 @@ export async function POST(request) {
   // Start the audit process (don't await — let it run asynchronously)
   runAudit(auditId, url, keywords).catch(err => {
     console.error(`Audit ${auditId} failed:`, err);
-    updateAudit(auditId, { status: 'failed', current_stage: 'failed' });
+    updateAudit(auditId, { 
+      status: 'failed', 
+      current_stage: 'failed',
+      error_message: err?.message || 'Audit execution failed'
+    });
   });
   
   return NextResponse.json({ id: auditId, status: 'running', stage: 'pending' }, { status: 201 });
@@ -146,8 +179,8 @@ async function runAudit(auditId, url, keywords) {
     
     // Step 4: Content Scoring (LLM with partial saves & concurrency pool)
     updateAuditStage(auditId, 'content');
-    let contentScore = 50;
-    let contentResults = { overallScore: 50, pageScores: [] };
+    let contentScore = null;
+    let contentResults = null;
     try {
       contentResults = await withTimeout(
         scoreContentExtractability(pages, {
@@ -156,13 +189,15 @@ async function runAudit(auditId, url, keywords) {
           }
         }),
         60000,
-        { overallScore: 50, pageScores: [] },
+        null,
         'Content scoring'
       );
-      contentScore = formatScore(contentResults.overallScore);
+      if (contentResults && typeof contentResults.overallScore === 'number') {
+        contentScore = formatScore(contentResults.overallScore);
+      }
     } catch (e) {
       console.error('Content scoring failed:', e);
-      contentScore = 50; // Default if LLM fails
+      contentScore = null;
     }
     
     // Step 5: Generate llms.txt
@@ -191,7 +226,7 @@ async function runAudit(auditId, url, keywords) {
         citationResults = await withTimeout(
           probeCitations(url, keywords),
           45000,
-          { results: [], summary: { citationRate: null, visibilityRate: null } },
+          { results: [], summary: { citationRate: null, visibilityRate: null, timedOut: true } },
           'Citation probing'
         );
         if (citationResults?.results?.length > 0) {
@@ -259,7 +294,11 @@ async function runAudit(auditId, url, keywords) {
     
   } catch (error) {
     console.error('Audit failed:', error);
-    updateAudit(auditId, { status: 'failed', current_stage: 'failed' });
+    updateAudit(auditId, { 
+      status: 'failed', 
+      current_stage: 'failed',
+      error_message: error?.message || 'Pipeline execution failed'
+    });
     throw error;
   } finally {
     activeAuditsCount = Math.max(0, activeAuditsCount - 1);

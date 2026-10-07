@@ -133,6 +133,7 @@ export default async function AuditReportPage({ params }) {
       <VisibilitySection 
         citations={viewModel.citations} 
         domain={viewModel.domain} 
+        keywords={viewModel.keywords}
       />
 
       {/* Generated llms.txt Studio */}

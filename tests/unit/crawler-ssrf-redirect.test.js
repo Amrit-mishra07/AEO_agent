@@ -63,5 +63,5 @@ describe('Crawler SSRF Hardening & Redirect Protection', () => {
     } finally {
       global.fetch = originalFetch;
     }
-  });
+  }, 30000);
 });

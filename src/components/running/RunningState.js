@@ -52,6 +52,13 @@ export default function RunningState({ auditId, url }) {
   const [tipIndex, setTipIndex] = useState(0);
   const isPollingRef = useRef(false);
 
+  const isDoneRef = useRef(false);
+  const secondsRef = useRef(0);
+
+  useEffect(() => {
+    secondsRef.current = seconds;
+  }, [seconds]);
+
   // Live elapsed seconds stopwatch
   useEffect(() => {
     const timer = setInterval(() => {
@@ -70,7 +77,7 @@ export default function RunningState({ auditId, url }) {
 
   // Polling with backoff and visibility awareness
   const checkStatus = useCallback(async () => {
-    if (isPollingRef.current || !auditId) return;
+    if (isDoneRef.current || isPollingRef.current || !auditId) return;
 
     isPollingRef.current = true;
     try {
@@ -79,6 +86,7 @@ export default function RunningState({ auditId, url }) {
       const data = await res.json();
 
       if (data.status === 'completed' || data.status === 'failed') {
+        isDoneRef.current = true;
         router.refresh();
         if (typeof window !== 'undefined') {
           window.location.reload();
@@ -98,20 +106,34 @@ export default function RunningState({ auditId, url }) {
   }, [auditId, router]);
 
   useEffect(() => {
-    // Backoff: 2.5s initial, 5s after 60 seconds
-    const intervalMs = seconds > 60 ? 5000 : 2500;
-    const interval = setInterval(checkStatus, intervalMs);
+    let timerId;
+    let isCancelled = false;
+
+    const scheduleNext = () => {
+      if (isCancelled || isDoneRef.current) return;
+      // Backoff: 2.5s initial, 5s after 60 seconds
+      const delay = secondsRef.current > 60 ? 5000 : 2500;
+      timerId = setTimeout(async () => {
+        await checkStatus();
+        scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
 
     const handleVisibilityChange = () => {
-      if (!document.hidden) checkStatus();
+      if (!document.hidden && !isDoneRef.current) {
+        checkStatus();
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      clearInterval(interval);
+      isCancelled = true;
+      clearTimeout(timerId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [seconds, checkStatus]);
+  }, [checkStatus]);
 
   const progressPercent = Math.min(
     95,

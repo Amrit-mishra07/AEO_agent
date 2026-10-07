@@ -19,6 +19,8 @@ const PRESETS = [
   { label: 'linear.app', url: 'https://linear.app', queries: ['issue tracking for software teams'] },
 ];
 
+const MAX_KEYWORDS = 5;
+
 export default function AuditForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,7 +39,7 @@ export default function AuditForm() {
   const addTag = (rawText) => {
     const trimmed = rawText.trim().replace(/^,+|,+$/g, '');
     if (!trimmed) return;
-    if (keywords.length >= 10) return;
+    if (keywords.length >= MAX_KEYWORDS) return;
     if (!keywords.includes(trimmed)) {
       setKeywords((prev) => [...prev, trimmed]);
     }
@@ -63,7 +65,7 @@ export default function AuditForm() {
       setKeywords((prev) => {
         const next = [...prev];
         for (const item of items) {
-          if (next.length < 10 && !next.includes(item)) {
+          if (next.length < MAX_KEYWORDS && !next.includes(item)) {
             next.push(item);
           }
         }
@@ -232,7 +234,7 @@ export default function AuditForm() {
             Questions customers ask AI <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(optional)</span>
           </label>
           <span className="tabular-nums text-muted text-xs" aria-live="polite">
-            {keywords.length} of 10
+            {keywords.length} of {MAX_KEYWORDS}
           </span>
         </div>
 
@@ -298,11 +300,11 @@ export default function AuditForm() {
             placeholder={
               keywords.length === 0
                 ? 'e.g. best payment API for startups (press Enter)'
-                : keywords.length < 10
+                : keywords.length < MAX_KEYWORDS
                 ? 'Add another question...'
-                : 'Maximum 10 questions reached'
+                : `Maximum ${MAX_KEYWORDS} questions reached`
             }
-            disabled={isLoading || keywords.length >= 10}
+            disabled={isLoading || keywords.length >= MAX_KEYWORDS}
             style={{
               flex: 1,
               minWidth: '200px',
@@ -318,11 +320,11 @@ export default function AuditForm() {
         </div>
 
         <p id="query-helper-text" className="text-muted text-xs" style={{ marginTop: '0.35rem' }}>
-          Add up to 10 questions. Without these we skip the AI visibility test and score technical readiness only.
+          Add up to {MAX_KEYWORDS} target queries. Each query runs a live, grounded search probe against Google to observe real-world AI citations.
         </p>
 
         {/* Suggested Queries */}
-        {keywords.length < 10 && (
+        {keywords.length < MAX_KEYWORDS && (
           <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
             <span className="text-muted text-xs">Suggestions:</span>
             {SUGGESTED_QUESTIONS.filter((q) => !keywords.includes(q)).slice(0, 2).map((q) => (

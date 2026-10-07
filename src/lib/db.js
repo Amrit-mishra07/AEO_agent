@@ -17,9 +17,10 @@ let db;
 
 export function getDB() {
   if (!db) {
-    db = new Database(DB_PATH);
+    db = new Database(DB_PATH, { timeout: 5000 });
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
+    db.pragma('busy_timeout = 5000');
     initializeDB(db);
   }
   return db;
@@ -54,8 +55,9 @@ export function cleanupStaleAudits(db, maxAgeMinutes = 15) {
   try {
     const stmt = db.prepare(`
       UPDATE audits
-      SET status = 'failed', updated_at = CURRENT_TIMESTAMP
-      WHERE status = 'running'
+      SET status = 'failed', current_stage = 'failed', updated_at = CURRENT_TIMESTAMP,
+          error_message = COALESCE(error_message, 'Audit timed out or was interrupted')
+      WHERE (status = 'running' OR status = 'pending')
         AND datetime(updated_at, '+' || ? || ' minutes') < datetime('now')
     `);
     const result = stmt.run(maxAgeMinutes);
@@ -87,6 +89,7 @@ export function initializeDB(db) {
       visibility_score INTEGER,
       overall_score INTEGER,
       llms_txt TEXT,
+      error_message TEXT,
       completed_at DATETIME
     );
 
@@ -156,12 +159,22 @@ export function initializeDB(db) {
       suggested_improvements TEXT,
       FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE
     );
+
+    -- Performance Indexes for child tables and status queries
+    CREATE INDEX IF NOT EXISTS idx_pages_audit_id ON pages(audit_id);
+    CREATE INDEX IF NOT EXISTS idx_seo_issues_audit_id ON seo_issues(audit_id);
+    CREATE INDEX IF NOT EXISTS idx_schema_gaps_audit_id ON schema_gaps(audit_id);
+    CREATE INDEX IF NOT EXISTS idx_citations_audit_id ON citations(audit_id);
+    CREATE INDEX IF NOT EXISTS idx_content_scores_audit_id ON content_scores(audit_id);
+    CREATE INDEX IF NOT EXISTS idx_audits_created_at ON audits(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audits_status ON audits(status);
   `);
 
   // Ensure backward compatibility if tables already existed
   addColumnIfNotExists(db, 'audits', 'current_stage', "TEXT DEFAULT 'pending'");
   addColumnIfNotExists(db, 'audits', 'technical_score', 'INTEGER');
   addColumnIfNotExists(db, 'audits', 'visibility_score', 'INTEGER');
+  addColumnIfNotExists(db, 'audits', 'error_message', 'TEXT');
   addColumnIfNotExists(db, 'pages', 'is_spa', 'INTEGER DEFAULT 0');
   addColumnIfNotExists(db, 'pages', 'spa_warning', 'TEXT');
   addColumnIfNotExists(db, 'pages', 'content_rewrite', 'TEXT');
@@ -175,6 +188,12 @@ export function initializeDB(db) {
 
   // Run startup crash recovery sweeper
   cleanupStaleAudits(db);
+}
+
+export function countActiveAudits(customDb = null) {
+  const targetDb = customDb || getDB();
+  const row = targetDb.prepare("SELECT COUNT(*) as count FROM audits WHERE status = 'running'").get();
+  return row ? row.count : 0;
 }
 
 // CRUD operations:

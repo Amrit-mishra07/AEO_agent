@@ -6,10 +6,11 @@ import RankedBars from '@/components/viz/RankedBars';
 import { computeShareOfVoice } from '@/view/share-of-voice';
 import { Bot, ExternalLink, Info, CheckCircle2, AlertCircle } from 'lucide-react';
 
-export default function VisibilitySection({ citations = [], domain = '' }) {
+export default function VisibilitySection({ citations = [], domain = '', keywords = [] }) {
   const sov = computeShareOfVoice(citations, domain);
 
   if (!citations || citations.length === 0) {
+    const hasKeywords = Array.isArray(keywords) && keywords.length > 0;
     return (
       <section id="citations" style={{ marginBottom: '2.5rem', scrollMarginTop: '100px' }}>
         <div style={{ marginBottom: '1.25rem' }}>
@@ -18,9 +19,15 @@ export default function VisibilitySection({ citations = [], domain = '' }) {
           </h2>
         </div>
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '2rem', textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-3)' }}>
-            No customer search queries were provided for this audit. AI citation tracking was skipped.
-          </p>
+          {hasKeywords ? (
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--warn)' }}>
+              Citation probing for provided queries ({keywords.join(', ')}) exceeded the search response timeout window or was unavailable. AI citation visibility was excluded from your composite score.
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-3)' }}>
+              No customer search queries were provided for this audit. AI citation tracking was skipped and scored based on technical readiness.
+            </p>
+          )}
         </div>
       </section>
     );

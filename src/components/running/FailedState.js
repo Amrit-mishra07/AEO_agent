@@ -113,7 +113,7 @@ export default function FailedState({ audit }) {
             background: 'var(--bg-subtle)',
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius-sm)',
-            marginBottom: '1.75rem',
+            marginBottom: '1.25rem',
           }}
         >
           <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', color: 'var(--text)', lineHeight: 1.6 }}>
@@ -124,6 +124,25 @@ export default function FailedState({ audit }) {
             {diagnosis.action}
           </div>
         </div>
+
+        {/* Specific Pipeline Error if captured */}
+        {(audit?.error_message || audit?.errorMessage) && (
+          <div 
+            style={{
+              padding: '0.75rem 1rem',
+              background: 'var(--bad-bg)',
+              border: '1px solid var(--bad-border)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '1.75rem',
+              fontSize: '0.8125rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--bad)',
+            }}
+          >
+            <strong>Root cause: </strong>
+            {audit.error_message || audit.errorMessage}
+          </div>
+        )}
 
         {/* Technical Details for Developers */}
         <div style={{ marginBottom: '2rem' }}>
@@ -143,6 +162,15 @@ export default function FailedState({ audit }) {
 
               <span style={{ color: 'var(--text-3)' }}>Status:</span>
               <span style={{ color: 'var(--bad)' }}>{audit?.status || 'failed'}</span>
+
+              {(audit?.error_message || audit?.errorMessage) && (
+                <>
+                  <span style={{ color: 'var(--text-3)' }}>Error Details:</span>
+                  <span style={{ color: 'var(--bad)', wordBreak: 'break-word' }}>
+                    {audit.error_message || audit.errorMessage}
+                  </span>
+                </>
+              )}
 
               {audit?.created_at && (
                 <>
